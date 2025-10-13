@@ -1,0 +1,100 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "TEC Heat Pump Modbus",
+        "description": "Configureer de verbinding met je TEC warmtepomp.",
+        "data": {
+          "name": "Naam (optioneel)",
+          "host": "Host (IP-adres)",
+          "port": "Poort",
+          "device_id": "Device ID",
+          "delay": "Vertraging (seconden)",
+          "timeout": "Time-out (seconden)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken met de warmtepomp. Controleer het IP-adres en de poort.",
+      "invalid_device_id": "Verbinding gelukt, maar communicatie mislukt. Controleer of het Device ID correct is.",
+      "unknown": "Onverwachte fout opgetreden."
+    },
+    "abort": {
+      "already_configured": "Dit apparaat is al geconfigureerd."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "TEC Heat Pump Opties",
+        "data": {
+          "delay": "Vertraging (seconden)",
+          "timeout": "Time-out (seconden)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "st01": { "name": "Temperatuur koelmodus" },
+      "st02": { "name": "Temperatuur verwarmingsmodus" },
+      "st03": { "name": "Temperatuurverschil koelmodus" },
+      "st04": { "name": "Temperatuurverschil verwarmingsmodus" },
+      "st06": { "name": "Compensatiefactor stooklijn" },
+      "st07": { "name": "Buitentemperatuur voorwaarde voor starten hulpverwarming" },
+      "st08": { "name": "Compensatiefactor koelkromme" },
+      "st09": { "name": "Warmwater temperatuur instelling" },
+      "st10": { "name": "Warmwater temperatuurverschil instelling" },
+      "st11": { "name": "Minimum instelbare koeltemperatuur" },
+      "st12": { "name": "Maximum instelbare koeltemperatuur" },
+      "st13": { "name": "Minimum instelbare verwarmingstemperatuur" },
+      "st14": { "name": "Maximum instelbare verwarmingstemperatuur" },
+      "st15": { "name": "Minimum instelbare warmwatertemperatuur" },
+      "st16": { "name": "Maximum instelbare warmwatertemperatuur" },
+      "st17": { "name": "SG functie: Koel/verwarm watertemperatuur verhoging/verlaging" },
+      "st18": { "name": "SG functie: Warmwater temperatuur verhoging" },
+      "st33": { "name": "Warmwater circulatiepomp uit interval" },
+      "st34": { "name": "Warmwater circulatiepomp looptijd" },
+      "room_temperature_setting": { "name": "Kamertemperatuur instelling" },
+      "b1": { "name": "Water inlaattemperatuur" },
+      "b2": { "name": "Water uitlaattemperatuur" },
+      "t2": { "name": "Buiten omgevingstemperatuur" },
+      "t3": { "name": "Perstemperatuur" },
+      "t4": { "name": "Zuigtemperatuur" },
+      "b4": { "name": "Warmwater boilertemperatuur" },
+      "b6": { "name": "Lage drukzijde" },
+      "b7": { "name": "Hoge drukzijde" },
+      "flow": { "name": "Waterdebiet" },
+      "room_temperature": { "name": "Kamertemperatuur" },
+      "compressor": { "name": "Compressor frequentie" },
+      "y3": { "name": "Binnenpomp PWM" },
+      "operational_state": { "name": "Bedrijfsstatus apparaat" },
+      "operating_hours": { "name": "Compressor bedrijfsuren" },
+      "compressor_power": { "name": "Compressor vermogensverbruik" },
+      "energy_consumed": { "name": "Totaal energie verbruikt" },
+      "energy_produced": { "name": "Totaal energie geproduceerd" },
+      "al01": { "name": "Alarm: Lage druk" },
+      "al02": { "name": "Alarm: Hoge druk" },
+      "al03": { "name": "Alarm: Lage uitlaatwater temperatuur" },
+      "al05": { "name": "Alarm: Hoge uitlaatwater temperatuur" },
+      "al17": { "name": "Alarm: Waterdebiet te laag" },
+      "al18": { "name": "Alarm: Lage druk alarmen limiet overschreden" },
+      "al19": { "name": "Alarm: Hoge druk alarmen limiet overschreden" },
+      "secondary_pump": { "name": "Secundaire pomp status" },
+      "primary_pump": { "name": "Primaire pomp status" },
+      "no1": { "name": "Warmwater circulatiepomp status" },
+      "no4": { "name": "AC verwarming status" },
+      "no6": { "name": "Gasketel status" },
+      "no8": { "name": "Warmwater elektrische verwarming status" },
+      "d07": { "name": "Krukas verwarming status" }
+    },
+    "switch": {
+      "di4": { "name": "AC schakelaar" },
+      "di5": { "name": "Warmwater schakelaar" },
+      "tr12": { "name": "SG functie" }
+    },
+    "button": {
+      "refresh_data": { "name": "Gegevens bijwerken" }
+    }
+  }
+}

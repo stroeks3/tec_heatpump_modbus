@@ -1,0 +1,25 @@
+{
+  "domain": "tec_heatpump_modbus",
+  "name": "TEC Heat Pump Modbus",
+  "codeowners": [
+    "@stroeks3"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "modbus"
+  ],
+  "documentation": "https://github.com/stroeks3/tec_heatpump_modbus",
+  "issue_tracker": "https://github.com/stroeks3/tec_heatpump_modbus/issues",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "requirements": [
+    "pymodbus>=3.11.1"
+  ],
+  "version": "1.0.0",
+  "platforms": [
+    "sensor",
+    "button",
+    "switch"
+  ],
+  "import_executor": true
+}
