@@ -71,8 +71,6 @@
       "operational_state": { "name": "Bedrijfsstatus apparaat" },
       "operating_hours": { "name": "Compressor bedrijfsuren" },
       "compressor_power": { "name": "Compressor vermogensverbruik" },
-      "energy_consumed": { "name": "Totaal energie verbruikt" },
-      "energy_produced": { "name": "Totaal energie geproduceerd" },
       "al01": { "name": "Alarm: Lage druk" },
       "al02": { "name": "Alarm: Hoge druk" },
       "al03": { "name": "Alarm: Lage uitlaatwater temperatuur" },

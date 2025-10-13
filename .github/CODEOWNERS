@@ -1,0 +1,13 @@
+# Global code owners
+* @stroeks3
+
+# Custom component specific
+/custom_components/tec_heatpump_modbus/ @stroeks3
+
+# Documentation
+/README.md @stroeks3
+/RELEASE_NOTES.md @stroeks3
+
+# Configuration files
+/hacs.json @stroeks3
+/.github/ @stroeks3

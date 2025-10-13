@@ -3,6 +3,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![GitHub release](https://img.shields.io/github/release/stroeks3/tec_heatpump_modbus.svg)](https://github.com/stroeks3/tec_heatpump_modbus/releases)
 [![License](https://img.shields.io/github/license/stroeks3/tec_heatpump_modbus.svg)](LICENSE)
+[![IoT Class Local Polling](https://img.shields.io/badge/IoT%20Class-Local%20Polling-yellow)](https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things)
 
 > **Disclaimer:** This is an unofficial integration created by the community, not by TEC (The Energy Combination). TEC does not provide support for it. This is a community project - use it entirely at your own risk. Developed and tested with the TEC RS07VLF 7kW (R32) heat pump.
 
