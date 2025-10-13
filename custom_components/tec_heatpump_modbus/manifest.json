@@ -15,11 +15,5 @@
   "requirements": [
     "pymodbus>=3.11.1"
   ],
-  "version": "1.0.0",
-  "platforms": [
-    "sensor",
-    "button",
-    "switch"
-  ],
-  "import_executor": true
+  "version": "1.0.0"
 }
