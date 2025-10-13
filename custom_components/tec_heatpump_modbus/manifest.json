@@ -9,9 +9,9 @@
     "modbus"
   ],
   "documentation": "https://github.com/stroeks3/tec_heatpump_modbus",
-  "issue_tracker": "https://github.com/stroeks3/tec_heatpump_modbus/issues",
   "integration_type": "device",
   "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/stroeks3/tec_heatpump_modbus/issues",
   "requirements": [
     "pymodbus>=3.11.1"
   ],
