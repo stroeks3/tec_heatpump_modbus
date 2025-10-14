@@ -11,7 +11,7 @@ A comprehensive Home Assistant integration for TEC (The Energy Combination) heat
 
 ## Features
 
-### 📊 Comprehensive Monitoring (70+ entities)
+### 📊 Comprehensive Monitoring (50+ entities)
 - **20 Writable Settings** - Temperature setpoints, pump intervals, compensation factors
 - **18 Read-Only Sensors** - Temperatures, pressures, flow, power consumption, operating hours
 - **13 Discrete Inputs** - Alarms and status indicators for all major components
