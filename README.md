@@ -96,10 +96,10 @@ A WiFi module (Modbus RTU to TCP/IP gateway) is essential to enable communicatio
 
 2. **Modbus Settings (Critical):**
    - **Protocol:** Modbus TCP/RTU Gateway mode
-   - **Baud Rate:** Match your heat pump settings (typically **9600 bps**)
+   - **Baud Rate:** 9600
    - **Data Bits:** 8
-   - **Parity:** None (or as specified in heat pump manual)
-   - **Stop Bits:** 1
+   - **Parity:** Even
+   - **Stop Bits:** 2
    - **TCP Port:** **502** (standard Modbus TCP port)
 
 3. **Network Settings:**
