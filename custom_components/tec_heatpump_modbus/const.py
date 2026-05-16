@@ -61,7 +61,6 @@ SENSORS = [
     { "unique_id": "room_temperature_setting", "translation_key": "room_temperature_setting", "name": "Room Temperature Setting", "address": 9, "data_type": "int16", "min_value": 0, "max_value": 500, "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
 
     # Compressor frequency limits (writable, Function 3)
-    # CAUTION: CM16 has a hardware floor around 30 Hz (compressor protective-stops below). EV06 below ~23% causes pump-stall.
     { "unique_id": "cm14", "translation_key": "cm14", "name": "Compressor Rated Heating Frequency", "address": 115, "data_type": "int16", "min_value": 30, "max_value": 90, "unit": "Hz", "device_class": SensorDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "cm15", "translation_key": "cm15", "name": "Compressor Maximum Heating Frequency", "address": 116, "data_type": "int16", "min_value": 30, "max_value": 95, "unit": "Hz", "device_class": SensorDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "cm17", "translation_key": "cm17", "name": "Compressor Maximum DHW Frequency", "address": 117, "data_type": "int16", "min_value": 30, "max_value": 95, "unit": "Hz", "device_class": SensorDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
