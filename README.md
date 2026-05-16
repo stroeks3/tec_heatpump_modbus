@@ -212,7 +212,7 @@ data:
   value: 25.5   # Value (automatically scaled)
 ```
 
-**Writable Sensors:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`
+**Writable Sensors:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
 
 ## Technical Details
 

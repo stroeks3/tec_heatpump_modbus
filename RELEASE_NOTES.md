@@ -1,3 +1,35 @@
+# Release Notes - v1.1.0
+
+## New Features
+
+**Compressor frequency limit parameters (writable)**
+
+Five new writable sensors expose the compressor frequency limits:
+
+- `cm14` — Compressor Rated Heating Frequency (HR 115, Hz)
+- `cm15` — Compressor Maximum Heating Frequency (HR 116, Hz)
+- `cm16` — Compressor Minimum Heating Frequency (HR 121, Hz)
+- `cm17` — Compressor Maximum DHW Frequency (HR 117, Hz)
+- `cm18` — Compressor Minimum DHW Frequency (HR 118, Hz)
+
+**Indoor pump parameters (writable)**
+
+Five new writable sensors expose pump tuning parameters:
+
+- `ev03` — Indoor Pump Target dT (Cooling) (HR 18, °C)
+- `ev04` — Indoor Pump Target dT (Heating) (HR 19, °C)
+- `ev05` — Indoor Pump Maximum Speed (HR 20, %)
+- `ev06` — Indoor Pump Minimum Speed (HR 21, %)
+- `ev07` — Indoor Pump Minimum Flow Alarm Threshold (HR 22, m³/h)
+
+### Compatibility
+
+- Existing automations continue to work unchanged.
+- New sensors appear automatically after upgrade.
+- Translations included for English (default) and Dutch.
+
+---
+
 # Release Notes - v1.0.0
 
 ## Initial Release
