@@ -30,6 +30,16 @@ write_register:
             - "st33"
             - "st34"
             - "room_temperature_setting"
+            - "cm14"
+            - "cm15"
+            - "cm16"
+            - "cm17"
+            - "cm18"
+            - "ev03"
+            - "ev04"
+            - "ev05"
+            - "ev06"
+            - "ev07"
     value:
       name: Value
       description: The value to write (will be automatically scaled according to sensor configuration)

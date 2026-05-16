@@ -212,7 +212,9 @@ data:
   value: 25.5   # Value (automatically scaled)
 ```
 
-**Writable Sensors:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`
+**Writable Sensors:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
+
+> ⚠️ **Caution with compressor/pump tuning (`cm*`, `ev*`):** the heat pump enforces hardware floors that, if exceeded, trigger protective-stops or — in the worst case — IGBT damage. Specifically, on the RS07: `cm16` has a floor around 30 Hz and `ev06` around 23%. Read the [RELEASE_NOTES](RELEASE_NOTES.md) for context before using these.
 
 ## Technical Details
 

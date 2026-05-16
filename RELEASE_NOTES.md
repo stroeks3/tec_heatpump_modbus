@@ -1,3 +1,45 @@
+# Release Notes - v1.1.0
+
+## New Features
+
+**Compressor frequency limit parameters (writable)**
+
+Five new writable sensors expose the compressor frequency limits, enabling fine-grained tuning from Home Assistant automations:
+
+- `cm14` — Compressor Rated Heating Frequency (HR 115, Hz)
+- `cm15` — Compressor Maximum Heating Frequency (HR 116, Hz)
+- `cm16` — Compressor Minimum Heating Frequency (HR 121, Hz)
+- `cm17` — Compressor Maximum DHW Frequency (HR 117, Hz)
+- `cm18` — Compressor Minimum DHW Frequency (HR 118, Hz)
+
+> ⚠️ Caution: The RS07 has an empirical hardware floor around 30 Hz for `cm16`. Writing below that causes the compressor to protective-stop. Use with care.
+
+**Indoor pump parameters (writable)**
+
+Five new writable sensors expose pump tuning parameters:
+
+- `ev03` — Indoor Pump Target dT (Cooling) (HR 18, °C)
+- `ev04` — Indoor Pump Target dT (Heating) (HR 19, °C)
+- `ev05` — Indoor Pump Maximum Speed (HR 20, %)
+- `ev06` — Indoor Pump Minimum Speed (HR 21, %)
+- `ev07` — Indoor Pump Minimum Flow Alarm Threshold (HR 22, m³/h)
+
+> ⚠️ Caution: `ev06` has an empirical floor around 23%. Below this, the pump may stall without controller noticing — risking compressor IGBT damage during operation.
+
+### Use cases
+
+- **Smart-grid DHW boost** automations during low-tariff hours (raise `cm17` + `st09` to charge the DHW tank fast, restore afterwards)
+- **Seasonal pump tuning** (adjust `ev04` set-point to match heating load)
+- **Empirical compressor floor exploration** for efficiency (lower `cm16` from default toward hardware minimum for longer modulating cycles)
+
+### Compatibility
+
+- Existing automations continue to work unchanged.
+- New sensors appear automatically after upgrade.
+- Translations included for English (default) and Dutch.
+
+---
+
 # Release Notes - v1.0.0
 
 ## Initial Release
