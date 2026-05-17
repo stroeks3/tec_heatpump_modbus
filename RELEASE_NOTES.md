@@ -1,3 +1,31 @@
+# Release Notes - v1.1.1
+
+## Breaking Change: English entity IDs
+
+Entity names are now consistently in English across all locales. Previously, users with a non-English Home Assistant locale (e.g. Dutch) received translated entity IDs such as `sensor.tec_heat_pump_temperatuur_koelmodus`. This made writing automations harder for anyone sharing templates across locales.
+
+In this release the Dutch translations for sensor/switch/button names have been removed. The Home Assistant setup and options dialogs remain in Dutch for Dutch users — only the entity display names and IDs change.
+
+### Migration
+
+**Existing installations are not automatically renamed.** Home Assistant's entity registry preserves your current entity IDs.
+
+If you want the new English entity IDs:
+
+1. **Recommended:** Remove the integration via Settings → Devices & Services → TEC Heat Pump Modbus → Delete. Then add it again. New English entity IDs will be generated. History will be lost for these entities.
+2. **Alternative:** Manually rename each entity via Settings → Devices & Services → TEC Heat Pump Modbus → click the entity → ID field. Preserves history.
+
+### Examples
+
+| Before (NL locale) | After (any locale) |
+|---|---|
+| `sensor.tec_heat_pump_temperatuur_koelmodus` | `sensor.tec_heat_pump_temperature_on_cooling_mode` |
+| `sensor.tec_heat_pump_warmwater_temperatuur_instelling` | `sensor.tec_heat_pump_dhw_temperature_setup` |
+| `sensor.tec_heat_pump_water_inlaattemperatuur` | `sensor.tec_heat_pump_water_inlet_temperature` |
+| `switch.tec_heat_pump_warmwater_schakelaar` | `switch.tec_heat_pump_dhw_switch` |
+
+---
+
 # Release Notes - v1.1.0
 
 ## New Features
