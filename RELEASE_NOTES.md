@@ -1,3 +1,45 @@
+# Release Notes - v1.1.2
+
+## Shorter, More Consistent Entity Names
+
+Entity display names have been shortened and made more consistent so that templates, dashboards, and automations are easier to read. The change touches every sensor, switch, and button.
+
+### Common edits
+
+- Removed redundant `Compressor`/`Indoor Pump` prefixes (already implied by the parameter name)
+- Removed `Status` suffix from binary sensors (the state itself indicates status)
+- Removed `Temperature` from sensors whose `device_class` already conveys it
+- Standardized alarms from `Alarm: X` to `X Alarm`
+- Standardized setpoints to `<Mode> Setpoint` (Cooling Setpoint, Heating Setpoint, DHW Setpoint)
+- Standardized frequencies to `<Mode> <Min/Max/Rated> Freq`
+
+### Examples
+
+| Before (v1.1.1) | After (v1.1.2) |
+|---|---|
+| Temperature on Cooling Mode | Cooling Setpoint |
+| Temperature on Heating Mode | Heating Setpoint |
+| Temperature Difference on Heating Mode | Heating dT |
+| Compressor Minimum Heating Frequency | Heating Min Freq |
+| Compressor Maximum DHW Frequency | DHW Max Freq |
+| Indoor Pump Minimum Speed | Pump Min Speed |
+| Indoor Pump Target dT (Heating) | Pump Target dT (Heating) |
+| Water Inlet Temperature | Water Inlet |
+| Outdoor Ambient Temperature | Ambient |
+| Compressor Power Consumption | Compressor Power |
+| Alarm: Low Pressure | Low Pressure Alarm |
+| DHW Electric Heater Status | DHW E-Heater |
+| SG Function | SG Mode |
+
+### Breaking change
+
+Just like in v1.1.1, the entity IDs will change because they are generated from the entity name. Existing installations are **not** auto-renamed. To pick up the new IDs:
+
+1. **Recommended:** Remove the integration via Settings → Devices & Services → TEC Heat Pump Modbus → Delete, then add it again. History for those entities is lost.
+2. **Alternative:** Manually rename each entity via the UI to preserve history.
+
+---
+
 # Release Notes - v1.1.1
 
 ## Breaking Change: English entity IDs
