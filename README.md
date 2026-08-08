@@ -8,11 +8,11 @@ A comprehensive Home Assistant integration for TEC (The Energy Combination) heat
 
 ## Features
 
-### 📊 Comprehensive Monitoring (50+ entities)
+### 📊 Comprehensive Monitoring & Control (60+ entities)
 
-- **20 Writable Settings** - Temperature setpoints, pump intervals, compensation factors
-- **18 Read-Only Sensors** - Temperatures, pressures, flow, power consumption, operating hours
-- **13 Discrete Inputs** - Alarms and status indicators for all major components
+- **30 Number Entities** - Writable settings (setpoints, compressor frequency limits, pump parameters) adjustable directly from the UI, with documented min/max limits enforced
+- **15 Read-Only Sensors** - Temperatures, pressures, flow, power consumption, operating hours
+- **14 Discrete Inputs** - Alarms and status indicators for all major components
 - **3 Switches** - AC, DHW (Domestic Hot Water), and SG Function control
 - **1 Refresh Button** - Manual data refresh on demand
 
@@ -29,13 +29,13 @@ A comprehensive Home Assistant integration for TEC (The Energy Combination) heat
 - Support for multiple heat pumps
 - Optional custom device naming
 
-### 🔧 Write Service
+### 🔧 Writing Values
 
-Control your heat pump by writing values to writable registers:
+Control your heat pump by adjusting writable registers:
 
-- `tec_heatpump_modbus.write_register` service
-- Automatic value scaling and conversion
-- Support for all 20 writable settings
+- **Number entities** (recommended) - set values directly in the UI or via `number.set_value`; min/max limits are enforced
+- `tec_heatpump_modbus.write_register` service - deprecated, kept for backwards compatibility
+- Automatic value scaling and conversion (e.g. 21.3°C ↔ raw register value 213)
 
 ### 🚀 Automation-Ready
 
@@ -164,17 +164,20 @@ You can add multiple TEC heat pumps by configuring each with a unique name:
 
 ## Available Entities
 
-### Sensors (38 total)
+### Number Entities (30) — Writable Settings
 
-#### Writable Settings (20)
+Adjustable directly from the Home Assistant UI (with documented min/max limits enforced) or via `number.set_value`:
 
-- Temperature setpoints (cooling, heating, DHW)
-- Temperature differences
-- Compensation factors
+- Temperature setpoints (cooling, heating, DHW) and hysteresis
+- Heating/cooling curve compensation factors
+- Compressor frequency limits (heating & DHW: rated/min/max)
+- Indoor pump parameters (target dT, min/max speed, min flow alarm)
 - DHW circulation pump timings
 - Room temperature setting
 
-#### Read-Only Sensors (18)
+**Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
+
+### Sensors (15) — Read-Only
 
 - Water inlet/outlet temperatures
 - Outdoor ambient temperature
@@ -186,7 +189,7 @@ You can add multiple TEC heat pumps by configuring each with a unique name:
 - Compressor power consumption
 - Unit operating state
 
-### Discrete Inputs (13)
+### Discrete Inputs (14)
 
 - **Alarms:** Low/high pressure, temperature, flow
 - **Status:** Primary/secondary pump, heaters, gas boiler
@@ -201,18 +204,37 @@ You can add multiple TEC heat pumps by configuring each with a unique name:
 
 - Refresh Data
 
-## Write Service
+## Writing Values
 
-Control writable parameters using the `tec_heatpump_modbus.write_register` service:
+**Recommended:** use the number entities directly, e.g. in an automation:
+
+```yaml
+service: number.set_value
+target:
+  entity_id: number.tec_heat_pump_cooling_setpoint
+data:
+  value: 21.3
+```
+
+Values are shown and set in display units; the integration converts to raw register values automatically (21.3°C ↔ raw 213 with scale 0.1).
+
+**Deprecated (still works):** the `tec_heatpump_modbus.write_register` service:
 
 ```yaml
 service: tec_heatpump_modbus.write_register
 data:
-  sensor: st01  # Sensor unique ID
-  value: 25.5   # Value (automatically scaled)
+  sensor: st01  # Register unique ID
+  value: 21.3   # Value (automatically scaled)
 ```
 
-**Writable Sensors:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
+## ⚠️ Upgrading from 1.x to 2.0
+
+Writable settings moved from `sensor.*` to `number.*` entities (**breaking change**):
+
+- `sensor.tec_heat_pump_cooling_setpoint` → `number.tec_heat_pump_cooling_setpoint` (same pattern for all 30 writable registers)
+- Update dashboards and automations that reference the old `sensor.*` entity IDs
+- The `write_register` service keeps working unchanged
+- Long-term statistics recorded under the old sensor entities are not migrated
 
 ## Technical Details
 
