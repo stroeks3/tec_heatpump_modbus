@@ -1,10 +1,13 @@
 write_register:
   name: Write Register
-  description: Write a value to a writable TEC heat pump sensor register
+  description: >-
+    Write a value to a writable TEC heat pump register. Deprecated: writable
+    registers are now exposed as number entities; prefer number.set_value.
+    Kept for backwards compatibility with existing automations.
   fields:
     sensor:
-      name: Sensor
-      description: The sensor unique ID to write to
+      name: Register
+      description: The register unique ID to write to
       required: true
       example: "st01"
       selector:

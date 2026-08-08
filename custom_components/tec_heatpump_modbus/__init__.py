@@ -18,13 +18,14 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_DELAY,
     DOMAIN,
+    NUMBERS,
     SENSORS,
     SWITCHES,
     REGISTER_TYPE_COIL,
 )
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON, Platform.SWITCH]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.NUMBER, Platform.BUTTON, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -36,20 +37,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def write_register_service(call: ServiceCall):
-        """Service handler to write a value to a register."""
+        """Service handler to write a value to a register.
+
+        Kept for backwards compatibility with existing automations;
+        writable registers are also exposed as number entities.
+        """
         sensor_name = call.data.get("sensor")
         value_to_write = call.data.get("value")
         sensor_config = next(
-            (s for s in SENSORS if s.get("unique_id") == sensor_name and s.get("writable")),
+            (s for s in NUMBERS if s.get("unique_id") == sensor_name and s.get("writable")),
             None,
         )
         if not sensor_config:
             _LOGGER.error(
-                f"Service 'write_register': Sensor '{sensor_name}' is not found or not writable."
+                f"Service 'write_register': Register '{sensor_name}' is not found or not writable."
             )
             return
-        # Convert scaled value back to raw register value (e.g., 25.5°C -> 255)
-        raw_value = int(value_to_write / sensor_config.get("scale", 1.0))
+        # Convert scaled value back to raw register value (e.g., 21.3°C -> 213).
+        # round() instead of int(): int(21.3 / 0.1) truncates to 212.
+        raw_value = round(value_to_write / sensor_config.get("scale", 1.0))
+        # Two's complement for signed registers (e.g. -10.0°C -> 65436)
+        if raw_value < 0:
+            raw_value += 65536
         device_id = coordinator.device_id
         address = sensor_config["address"]
         _LOGGER.info(
@@ -97,7 +106,14 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
-        super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=update_interval)
+        # config_entry is required since HA 2026.8 (hard error when omitted)
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=DOMAIN,
+            update_interval=update_interval,
+            config_entry=entry,
+        )
         self.device_info = DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
             name=device_name,
@@ -109,7 +125,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         """Fetch data from API endpoint."""
         from pymodbus.client import ModbusTcpClient
 
-        all_entities = SENSORS + SWITCHES
+        all_entities = SENSORS + NUMBERS + SWITCHES
         data = {}
         client = ModbusTcpClient(host=self.host, port=self.port, timeout=self.timeout)
 
