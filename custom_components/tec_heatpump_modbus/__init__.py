@@ -1,5 +1,6 @@
 """The TEC Heat Pump Modbus integration."""
 from __future__ import annotations
+import asyncio
 import logging
 from datetime import timedelta
 from collections import defaultdict
@@ -89,12 +90,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     hass.services.async_remove(DOMAIN, "write_register")
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        hass.data[DOMAIN].pop(entry.entry_id)
+        coordinator: TECHeatPumpCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
+        await coordinator.async_close()
     return unload_ok
 
 
 class TECHeatPumpCoordinator(DataUpdateCoordinator):
-    """Data coordinator for the TEC Heat Pump."""
+    """Data coordinator for the TEC Heat Pump.
+
+    Maintains a single persistent Modbus TCP connection that is shared by
+    the polling loop and all writes (serialized by a lock). This avoids a
+    connect/disconnect cycle every poll, which matters on RTU-to-TCP
+    gateways with a limited number of simultaneous client slots.
+    """
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
@@ -103,6 +111,8 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         self.device_id = entry.data[CONF_DEVICE_ID]
         self.timeout = entry.data[CONF_TIMEOUT]
         self.entry = entry
+        self._client = None
+        self._modbus_lock = asyncio.Lock()
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -121,114 +131,144 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             model="Heat Pump",
         )
 
-    async def _async_update_data(self) -> dict:
-        """Fetch data from API endpoint."""
+    @property
+    def client_connected(self) -> bool:
+        """Return True if the persistent Modbus connection is open."""
+        return self._client is not None and self._client.is_socket_open()
+
+    async def _async_get_client(self):
+        """Return a connected Modbus client, (re)connecting if needed.
+
+        Must be called while holding self._modbus_lock.
+        """
         from pymodbus.client import ModbusTcpClient
 
+        if self._client is None:
+            self._client = ModbusTcpClient(
+                host=self.host, port=self.port, timeout=self.timeout
+            )
+        if not self._client.is_socket_open():
+            if not await self.hass.async_add_executor_job(self._client.connect):
+                raise UpdateFailed(f"Failed to connect to {self.host}:{self.port}")
+            _LOGGER.debug("Modbus connection (re)established to %s:%s", self.host, self.port)
+        return self._client
+
+    async def _async_drop_client(self) -> None:
+        """Close the connection so the next call starts with a clean socket.
+
+        Must be called while holding self._modbus_lock.
+        """
+        if self._client is None:
+            return
+        try:
+            await self.hass.async_add_executor_job(self._client.close)
+        except Exception:  # noqa: BLE001 - best effort cleanup
+            pass
+
+    async def async_close(self) -> None:
+        """Close the Modbus connection (called on unload)."""
+        async with self._modbus_lock:
+            await self._async_drop_client()
+            self._client = None
+
+    async def _async_update_data(self) -> dict:
+        """Fetch data from API endpoint."""
         all_entities = SENSORS + NUMBERS + SWITCHES
         data = {}
-        client = ModbusTcpClient(host=self.host, port=self.port, timeout=self.timeout)
 
-        try:
-            if not await self.hass.async_add_executor_job(client.connect):
-                raise UpdateFailed(f"Failed to connect to {self.host}:{self.port}")
+        async with self._modbus_lock:
+            client = await self._async_get_client()
+            try:
+                # Group entities by device_id and function code for efficient batch reading
+                entity_groups = defaultdict(list)
+                for entity_config in all_entities:
+                    function_code = entity_config.get("function")
+                    # Fallback for switches: use function 2 (read discrete inputs) for coils
+                    if not function_code and entity_config.get("register_type") == REGISTER_TYPE_COIL:
+                        function_code = 2
+                    if not function_code:
+                        continue
+                    key = (self.device_id, function_code)
+                    entity_groups[key].append(entity_config)
 
-            # Group entities by device_id and function code for efficient batch reading
-            entity_groups = defaultdict(list)
-            for entity_config in all_entities:
-                function_code = entity_config.get("function")
-                # Fallback for switches: use function 2 (read discrete inputs) for coils
-                if not function_code and entity_config.get("register_type") == REGISTER_TYPE_COIL:
-                    function_code = 2
-                if not function_code:
-                    continue
-                key = (self.device_id, function_code)
-                entity_groups[key].append(entity_config)
-            
-            for (device_id, function_code), entities in entity_groups.items():
-                modbus_func_map = {
-                    1: client.read_coils,
-                    2: client.read_discrete_inputs,
-                    3: client.read_holding_registers,
-                    4: client.read_input_registers,
-                }
-                read_func = modbus_func_map.get(function_code)
-                if not read_func:
-                    continue
+                for (device_id, function_code), entities in entity_groups.items():
+                    modbus_func_map = {
+                        1: client.read_coils,
+                        2: client.read_discrete_inputs,
+                        3: client.read_holding_registers,
+                        4: client.read_input_registers,
+                    }
+                    read_func = modbus_func_map.get(function_code)
+                    if not read_func:
+                        continue
 
-                # Read all addresses in one batch for efficiency
-                min_addr = min(s["address"] for s in entities)
-                max_addr = max(s["address"] for s in entities)
-                count = max_addr - min_addr + 1
+                    # Read all addresses in one batch for efficiency
+                    min_addr = min(s["address"] for s in entities)
+                    max_addr = max(s["address"] for s in entities)
+                    count = max_addr - min_addr + 1
 
-                result = await self.hass.async_add_executor_job(
-                    lambda: read_func(address=min_addr, count=count, device_id=device_id)
-                )
+                    result = await self.hass.async_add_executor_job(
+                        lambda: read_func(address=min_addr, count=count, device_id=device_id)
+                    )
 
-                if result.isError():
-                    _LOGGER.warning(f"Modbus error reading function {function_code}: {result}")
-                    continue
+                    if result.isError():
+                        _LOGGER.warning(f"Modbus error reading function {function_code}: {result}")
+                        continue
 
-                for entity in entities:
-                    offset = entity["address"] - min_addr
-                    value = None
-                    if hasattr(result, "bits") and len(result.bits) > offset:
-                        value = result.bits[offset]
-                    elif hasattr(result, "registers") and len(result.registers) > offset:
-                        raw_value = result.registers[offset]
-                        # Convert unsigned to signed int16 if needed
-                        value = (
-                            raw_value - 65536
-                            if entity.get("data_type") == "int16" and raw_value > 32767
-                            else raw_value
-                        )
-                        # Apply scaling factor (e.g., 0.1 to convert 250 to 25.0°C)
-                        if "scale" in entity:
-                            value *= entity["scale"]
-                    data[entity["unique_id"]] = value
+                    for entity in entities:
+                        offset = entity["address"] - min_addr
+                        value = None
+                        if hasattr(result, "bits") and len(result.bits) > offset:
+                            value = result.bits[offset]
+                        elif hasattr(result, "registers") and len(result.registers) > offset:
+                            raw_value = result.registers[offset]
+                            # Convert unsigned to signed int16 if needed
+                            value = (
+                                raw_value - 65536
+                                if entity.get("data_type") == "int16" and raw_value > 32767
+                                else raw_value
+                            )
+                            # Apply scaling factor (e.g., 0.1 to convert 250 to 25.0°C)
+                            if "scale" in entity:
+                                value *= entity["scale"]
+                        data[entity["unique_id"]] = value
 
-        except Exception as e:
-            raise UpdateFailed(f"Error communicating with device: {e}")
-        finally:
-            if client.is_socket_open():
-                await self.hass.async_add_executor_job(client.close)
+            except UpdateFailed:
+                await self._async_drop_client()
+                raise
+            except Exception as e:
+                # Drop the socket so the next poll reconnects cleanly
+                await self._async_drop_client()
+                raise UpdateFailed(f"Error communicating with device: {e}")
 
         return data
 
     async def api_write_register(self, address: int, value: int, device_id: int) -> None:
         """Write a single holding register."""
-        from pymodbus.client import ModbusTcpClient
-
-        client = ModbusTcpClient(host=self.host, port=self.port, timeout=self.timeout)
-        try:
-            if not await self.hass.async_add_executor_job(client.connect):
-                raise UpdateFailed(f"Cannot connect to {self.host} to write register")
-
-            result = await self.hass.async_add_executor_job(
-                lambda: client.write_register(address=address, value=value, device_id=device_id)
-            )
+        async with self._modbus_lock:
+            client = await self._async_get_client()
+            try:
+                result = await self.hass.async_add_executor_job(
+                    lambda: client.write_register(address=address, value=value, device_id=device_id)
+                )
+            except Exception as e:
+                await self._async_drop_client()
+                raise UpdateFailed(f"Error writing register {address}: {e}")
             if result.isError():
                 _LOGGER.error("Failed to write register %s: %s", address, result)
                 raise UpdateFailed("Failed to write register")
-        finally:
-            if client.is_socket_open():
-                await self.hass.async_add_executor_job(client.close)
 
     async def write_coil(self, address: int, value: bool, device_id: int) -> None:
         """Write a single coil."""
-        from pymodbus.client import ModbusTcpClient
-
-        client = ModbusTcpClient(host=self.host, port=self.port, timeout=self.timeout)
-        try:
-            if not await self.hass.async_add_executor_job(client.connect):
-                raise UpdateFailed(f"Cannot connect to {self.host} to write coil")
-
-            result = await self.hass.async_add_executor_job(
-                lambda: client.write_coil(address=address, value=value, device_id=device_id)
-            )
+        async with self._modbus_lock:
+            client = await self._async_get_client()
+            try:
+                result = await self.hass.async_add_executor_job(
+                    lambda: client.write_coil(address=address, value=value, device_id=device_id)
+                )
+            except Exception as e:
+                await self._async_drop_client()
+                raise UpdateFailed(f"Error writing coil {address}: {e}")
             if result.isError():
                 _LOGGER.error(f"Failed to write coil {address}: {result}")
                 raise UpdateFailed("Failed to write coil")
-        finally:
-            if client.is_socket_open():
-                await self.hass.async_add_executor_job(client.close)

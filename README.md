@@ -37,6 +37,17 @@ Control your heat pump by adjusting writable registers:
 - `tec_heatpump_modbus.write_register` service - deprecated, kept for backwards compatibility
 - Automatic value scaling and conversion (e.g. 21.3°C ↔ raw register value 213)
 
+### 🔌 Robust Modbus Communication
+
+- **Persistent TCP connection** — one connection is opened and reused for all polling and writes, instead of reconnecting every update cycle. This is significantly gentler on RTU-to-TCP gateways, most of which allow only a few simultaneous client connections (the popular USR-W610 allows 3). Automatic reconnect on connection loss.
+- Reads and writes are serialized, so a parameter write never collides with a polling cycle
+
+### 🩺 Diagnostics
+
+- Standard Home Assistant **Download diagnostics** support (device page → Download diagnostics)
+- Includes connection status, coordinator health and a full register dump with current values
+- Host/IP details are automatically redacted — safe to attach to GitHub issues
+
 ### 🚀 Automation-Ready
 
 All entities are standard Home Assistant entities, perfect for:
