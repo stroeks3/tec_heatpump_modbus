@@ -14,7 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, NUMBERS, SENSORS, SWITCHES
+from .const import DOMAIN, BINARY_SENSORS, NUMBERS, SENSORS, SWITCHES
 
 TO_REDACT = {CONF_HOST}
 
@@ -56,6 +56,7 @@ async def async_get_config_entry_diagnostics(
         "registers": {
             "numbers": describe(NUMBERS),
             "sensors": describe(SENSORS),
+            "binary_sensors": describe(BINARY_SENSORS),
             "switches": describe(SWITCHES),
         },
     }

@@ -1,5 +1,6 @@
 """Constants for the TEC Heat Pump Modbus integration."""
 
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.number import NumberDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
@@ -100,13 +101,6 @@ SENSORS = [
     # { "unique_id": "energy_produced", "translation_key": "energy_produced", "name": "Total Energy Produced", "address": 23, "data_type": "uint16", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },
 
     # Discrete Inputs (read-only) - Function 2
-    { "unique_id": "al01", "translation_key": "al01", "name": "Low Pressure Alarm", "address": 1, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
-    { "unique_id": "al02", "translation_key": "al02", "name": "High Pressure Alarm", "address": 2, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
-    { "unique_id": "al03", "translation_key": "al03", "name": "Low Outlet Temp Alarm", "address": 3, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
-    { "unique_id": "al05", "translation_key": "al05", "name": "High Outlet Temp Alarm", "address": 5, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
-    { "unique_id": "al17", "translation_key": "al17", "name": "Low Flow Alarm", "address": 6, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
-    { "unique_id": "al18", "translation_key": "al18", "name": "LP Alarm Count Exceeded", "address": 7, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
-    { "unique_id": "al19", "translation_key": "al19", "name": "HP Alarm Count Exceeded", "address": 8, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
     { "unique_id": "secondary_pump", "translation_key": "secondary_pump", "name": "Secondary Pump", "address": 25, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
     { "unique_id": "primary_pump", "translation_key": "primary_pump", "name": "Primary Pump", "address": 27, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
     { "unique_id": "no4", "translation_key": "no4", "name": "AC Heater", "address": 32, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
@@ -114,6 +108,23 @@ SENSORS = [
     { "unique_id": "no1", "translation_key": "no1", "name": "DHW Circ Pump", "address": 34, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
     { "unique_id": "no8", "translation_key": "no8", "name": "DHW E-Heater", "address": 36, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
     { "unique_id": "no6", "translation_key": "no6", "name": "Gas Boiler", "address": 39, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None }
+]
+
+# Alarm bits (Discrete Inputs) exposed as binary sensors with
+# device_class "problem" so they surface as real alarms in the UI,
+# in notifications and in voice assistants.
+BINARY_SENSORS = [
+    { "unique_id": "al01", "translation_key": "al01", "name": "Low Pressure Alarm", "address": 1, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
+    { "unique_id": "al02", "translation_key": "al02", "name": "High Pressure Alarm", "address": 2, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
+    { "unique_id": "al03", "translation_key": "al03", "name": "Low Outlet Temp Alarm", "address": 3, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
+    { "unique_id": "al05", "translation_key": "al05", "name": "High Outlet Temp Alarm", "address": 5, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
+    { "unique_id": "al17", "translation_key": "al17", "name": "Low Flow Alarm", "address": 6, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
+    { "unique_id": "al18", "translation_key": "al18", "name": "LP Alarm Count Exceeded", "address": 7, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
+    { "unique_id": "al19", "translation_key": "al19", "name": "HP Alarm Count Exceeded", "address": 8, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
+    # Latched inverter/IGBT failure alarm. Observed live on an RS07V/LF
+    # during a real IGBT trip (stays 1 until the alarm is reset on the
+    # panel or the unit is power-cycled).
+    { "unique_id": "al_inv", "translation_key": "al_inv", "name": "Inverter Alarm", "address": 83, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
 ]
 
 REGISTER_TYPE_COIL = "coil"
