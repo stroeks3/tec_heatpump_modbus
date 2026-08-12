@@ -19,6 +19,7 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_DELAY,
     DOMAIN,
+    BINARY_SENSORS,
     NUMBERS,
     SENSORS,
     SWITCHES,
@@ -26,7 +27,17 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.NUMBER, Platform.BUTTON, Platform.SWITCH]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.NUMBER,
+    Platform.BUTTON,
+    Platform.SWITCH,
+]
+
+# Bit-based Modbus functions (coils / discrete inputs) are read in chunks:
+# some RTU-to-TCP gateways and devices are unreliable with large bit reads.
+MAX_BITS_PER_READ = 32
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -173,7 +184,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict:
         """Fetch data from API endpoint."""
-        all_entities = SENSORS + NUMBERS + SWITCHES
+        all_entities = SENSORS + BINARY_SENSORS + NUMBERS + SWITCHES
         data = {}
 
         async with self._modbus_lock:
@@ -202,11 +213,32 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                     if not read_func:
                         continue
 
-                    # Read all addresses in one batch for efficiency
                     min_addr = min(s["address"] for s in entities)
                     max_addr = max(s["address"] for s in entities)
-                    count = max_addr - min_addr + 1
 
+                    if function_code in (1, 2):
+                        # Bit reads: chunked, sparse addresses allowed
+                        bits_by_addr = {}
+                        addr = min_addr
+                        while addr <= max_addr:
+                            chunk = min(MAX_BITS_PER_READ, max_addr - addr + 1)
+                            result = await self.hass.async_add_executor_job(
+                                lambda a=addr, c=chunk: read_func(address=a, count=c, device_id=device_id)
+                            )
+                            if result.isError():
+                                _LOGGER.warning(
+                                    f"Modbus error reading function {function_code} at {addr}: {result}"
+                                )
+                            else:
+                                for i in range(chunk):
+                                    bits_by_addr[addr + i] = result.bits[i]
+                            addr += chunk
+                        for entity in entities:
+                            data[entity["unique_id"]] = bits_by_addr.get(entity["address"])
+                        continue
+
+                    # Register reads: all addresses in one batch for efficiency
+                    count = max_addr - min_addr + 1
                     result = await self.hass.async_add_executor_job(
                         lambda: read_func(address=min_addr, count=count, device_id=device_id)
                     )
@@ -218,9 +250,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                     for entity in entities:
                         offset = entity["address"] - min_addr
                         value = None
-                        if hasattr(result, "bits") and len(result.bits) > offset:
-                            value = result.bits[offset]
-                        elif hasattr(result, "registers") and len(result.registers) > offset:
+                        if hasattr(result, "registers") and len(result.registers) > offset:
                             raw_value = result.registers[offset]
                             # Convert unsigned to signed int16 if needed
                             value = (

@@ -83,13 +83,6 @@
       "operational_state": { "name": "Operating State" },
       "operating_hours": { "name": "Operating Hours" },
       "compressor_power": { "name": "Compressor Power" },
-      "al01": { "name": "Low Pressure Alarm" },
-      "al02": { "name": "High Pressure Alarm" },
-      "al03": { "name": "Low Outlet Temp Alarm" },
-      "al05": { "name": "High Outlet Temp Alarm" },
-      "al17": { "name": "Low Flow Alarm" },
-      "al18": { "name": "LP Alarm Count Exceeded" },
-      "al19": { "name": "HP Alarm Count Exceeded" },
       "secondary_pump": { "name": "Secondary Pump" },
       "primary_pump": { "name": "Primary Pump" },
       "no1": { "name": "DHW Circ Pump" },
@@ -97,6 +90,16 @@
       "no6": { "name": "Gas Boiler" },
       "no8": { "name": "DHW E-Heater" },
       "d07": { "name": "Crankcase Heater" }
+    },
+    "binary_sensor": {
+      "al01": { "name": "Low Pressure Alarm" },
+      "al02": { "name": "High Pressure Alarm" },
+      "al03": { "name": "Low Outlet Temp Alarm" },
+      "al05": { "name": "High Outlet Temp Alarm" },
+      "al17": { "name": "Low Flow Alarm" },
+      "al18": { "name": "LP Alarm Count Exceeded" },
+      "al19": { "name": "HP Alarm Count Exceeded" },
+      "al_inv": { "name": "Inverter Alarm" }
     },
     "switch": {
       "di4": { "name": "AC Switch" },

@@ -200,10 +200,19 @@ Adjustable directly from the Home Assistant UI (with documented min/max limits e
 - Compressor power consumption
 - Unit operating state
 
-### Discrete Inputs (14)
+### Alarm Binary Sensors (8)
 
-- **Alarms:** Low/high pressure, temperature, flow
-- **Status:** Primary/secondary pump, heaters, gas boiler
+Real `binary_sensor` entities with `device_class: problem` — they show up red in
+the UI when active and work directly with notification automations and blueprints:
+
+- Low/high pressure alarm, low/high outlet temperature alarm, low flow alarm
+- LP/HP alarm count exceeded (24h protection counters)
+- **Inverter Alarm** (latched IGBT failure bit — observed and verified live on an
+  RS07V/LF during a real inverter trip)
+
+### Status Sensors — Discrete Inputs (7)
+
+- Primary/secondary pump, heaters, DHW circulation pump, gas boiler
 
 ### Switches (3)
 
