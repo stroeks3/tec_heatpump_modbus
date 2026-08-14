@@ -51,8 +51,13 @@ Control your heat pump by adjusting writable registers:
   noise, so this one is also meaningful during low-load operation (e.g.
   summer cooling at minimum compressor speed). Shown once at least 0.05 kWh
   was consumed within the hour; resets on restart.
+- **COP (Today)** — energy-weighted COP since local midnight, built on
+  persistent energy counters (survives restarts).
+- **Thermal Energy / Compressor Energy (kWh)** — cumulative counters,
+  persisted across restarts. Thermal counts |heat| moved to or from the
+  water (heating and cooling both add). Usable in the HA Energy dashboard.
 - Note: electrical power is the compressor inverter reading — the backup
-  E-heater (separate circuit) is not included in either COP.
+  E-heater (separate circuit) is not included in any COP.
 
 ### 🔌 Robust Modbus Communication
 
