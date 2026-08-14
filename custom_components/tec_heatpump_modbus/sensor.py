@@ -74,6 +74,11 @@ class TECHeatPumpSensor(CoordinatorEntity[TECHeatPumpCoordinator], SensorEntity)
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return device specific state attributes."""
+        if self._sensor_config.get("calculated"):
+            return {
+                "source": "calculated",
+                "device_id": self.coordinator.device_id,
+            }
         return {
             "address": self._sensor_config["address"],
             "device_id": self.coordinator.device_id,
