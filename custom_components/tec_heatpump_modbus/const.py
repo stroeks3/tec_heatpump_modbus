@@ -103,8 +103,12 @@ SENSORS = [
     # Positive = heating the water, negative = cooling (extraction).
     { "unique_id": "thermal_power", "translation_key": "thermal_power", "name": "Thermal Power", "unit": "kW", "device_class": SensorDeviceClass.POWER, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
     # Live COP: |thermal power| / compressor electrical power. Only while the
-    # compressor runs with meaningful load; otherwise unknown.
+    # compressor draws >= 0.5 kW (power register resolution is 0.1 kW);
+    # otherwise unknown.
     { "unique_id": "cop", "translation_key": "cop", "name": "COP", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+    # Energy-weighted average COP over the past hour — averages the register
+    # quantization noise away, so it is also meaningful at low loads.
+    { "unique_id": "cop_1h", "translation_key": "cop_1h", "name": "COP (1h Average)", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
     # Note: energy_consumed and energy_produced are commented out as the exact values and meanings are not yet known
     # { "unique_id": "energy_consumed", "translation_key": "energy_consumed", "name": "Total Energy Consumed", "address": 22, "data_type": "uint16", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },
     # { "unique_id": "energy_produced", "translation_key": "energy_produced", "name": "Total Energy Produced", "address": 23, "data_type": "uint16", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },

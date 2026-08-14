@@ -42,10 +42,17 @@ Control your heat pump by adjusting writable registers:
 - **Thermal Power (kW)** — live heat delivered to the water, calculated from
   water flow × temperature difference (positive = heating, negative = cooling)
 - **COP** — live coefficient of performance (thermal power ÷ compressor
-  electrical power). Only shown while the compressor is running with
-  meaningful load; "unknown" otherwise, so your statistics stay clean.
-  Note: electrical power is the compressor inverter reading — the backup
-  E-heater (separate circuit) is not included.
+  electrical power). Only shown while the compressor draws at least 0.5 kW:
+  the power register has 0.1 kW resolution, so below that the reading would
+  be dominated by rounding noise. "Unknown" otherwise, so your statistics
+  stay clean.
+- **COP (1h Average)** — energy-weighted COP over the past hour (total heat ÷
+  total electrical energy). The averaging cancels out register rounding
+  noise, so this one is also meaningful during low-load operation (e.g.
+  summer cooling at minimum compressor speed). Shown once at least 0.05 kWh
+  was consumed within the hour; resets on restart.
+- Note: electrical power is the compressor inverter reading — the backup
+  E-heater (separate circuit) is not included in either COP.
 
 ### 🔌 Robust Modbus Communication
 

@@ -2,8 +2,9 @@
 from __future__ import annotations
 import asyncio
 import logging
+import time
 from datetime import timedelta
-from collections import defaultdict
+from collections import defaultdict, deque
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
@@ -124,6 +125,9 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         self.entry = entry
         self._client = None
         self._modbus_lock = asyncio.Lock()
+        # Rolling window of (monotonic time, |thermal kW|, electrical kW)
+        # samples for the 1h-average COP
+        self._cop_samples: deque = deque()
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -274,15 +278,21 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         self._add_calculated_values(data)
         return data
 
-    @staticmethod
-    def _add_calculated_values(data: dict) -> None:
-        """Derive thermal power and live COP from the raw readings.
+    def _add_calculated_values(self, data: dict) -> None:
+        """Derive thermal power, live COP and 1h-average COP.
 
         Thermal power (kW) = flow (m³/h) x dT (K) x 1.163 kWh/(m³·K).
         Positive while heating the water, negative while cooling.
-        COP = |thermal| / electrical, only while the compressor runs with
-        meaningful load — otherwise None so HA shows "unknown" instead of
-        a bogus number.
+
+        Live COP = |thermal| / electrical, only while the compressor draws
+        at least 0.5 kW: the power register has 0.1 kW resolution, so below
+        ~0.5 kW the quantization error dominates the ratio. Otherwise None,
+        so HA shows "unknown" instead of a bogus number.
+
+        1h-average COP is energy-weighted over the past hour
+        (sum of heat / sum of electrical energy), which averages the
+        quantization noise away and therefore also works at low loads.
+        Shown once at least 0.05 kWh was consumed within the window.
         """
         inlet = data.get("b1")
         outlet = data.get("b2")
@@ -296,12 +306,41 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         data["thermal_power"] = thermal
 
         cop = None
-        if thermal is not None and freq and elec is not None and elec >= 0.2:
+        if thermal is not None and freq and elec is not None and elec >= 0.5:
             ratio = abs(thermal) / elec
             # Guard against sensor glitches (COP outside 0..15 is not real)
             if 0 < ratio <= 15:
                 cop = round(ratio, 2)
         data["cop"] = cop
+
+        # --- 1h energy-weighted average COP ---
+        now = time.monotonic()
+        # Only samples with the compressor actually consuming count;
+        # standby noise then contributes nothing to either sum.
+        if thermal is not None and elec is not None and elec >= 0.2:
+            self._cop_samples.append((now, abs(thermal), elec))
+        cutoff = now - 3600
+        while self._cop_samples and self._cop_samples[0][0] < cutoff:
+            self._cop_samples.popleft()
+
+        heat_kj = 0.0
+        energy_kj = 0.0
+        prev_t = None
+        for t, th, el in self._cop_samples:
+            if prev_t is not None:
+                # Cap the gap so pauses between runs don't fabricate energy
+                dt = min(t - prev_t, 30.0)
+                heat_kj += th * dt
+                energy_kj += el * dt
+            prev_t = t
+
+        cop_1h = None
+        # 0.05 kWh = 180 kJ minimum consumed energy in the window
+        if energy_kj >= 180.0:
+            ratio = heat_kj / energy_kj
+            if 0 < ratio <= 15:
+                cop_1h = round(ratio, 2)
+        data["cop_1h"] = cop_1h
 
     async def api_write_register(self, address: int, value: int, device_id: int) -> None:
         """Write a single holding register."""

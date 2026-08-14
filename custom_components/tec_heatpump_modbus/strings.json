@@ -85,6 +85,7 @@
       "compressor_power": { "name": "Compressor Power" },
       "thermal_power": { "name": "Thermal Power" },
       "cop": { "name": "COP" },
+      "cop_1h": { "name": "COP (1h Average)" },
       "secondary_pump": { "name": "Secondary Pump" },
       "primary_pump": { "name": "Primary Pump" },
       "no1": { "name": "DHW Circ Pump" },
