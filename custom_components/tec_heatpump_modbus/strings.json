@@ -83,6 +83,8 @@
       "operational_state": { "name": "Operating State" },
       "operating_hours": { "name": "Operating Hours" },
       "compressor_power": { "name": "Compressor Power" },
+      "thermal_power": { "name": "Thermal Power" },
+      "cop": { "name": "COP" },
       "secondary_pump": { "name": "Secondary Pump" },
       "primary_pump": { "name": "Primary Pump" },
       "no1": { "name": "DHW Circ Pump" },

@@ -37,6 +37,16 @@ Control your heat pump by adjusting writable registers:
 - `tec_heatpump_modbus.write_register` service - deprecated, kept for backwards compatibility
 - Automatic value scaling and conversion (e.g. 21.3°C ↔ raw register value 213)
 
+### 📈 Calculated Performance Sensors
+
+- **Thermal Power (kW)** — live heat delivered to the water, calculated from
+  water flow × temperature difference (positive = heating, negative = cooling)
+- **COP** — live coefficient of performance (thermal power ÷ compressor
+  electrical power). Only shown while the compressor is running with
+  meaningful load; "unknown" otherwise, so your statistics stay clean.
+  Note: electrical power is the compressor inverter reading — the backup
+  E-heater (separate circuit) is not included.
+
 ### 🔌 Robust Modbus Communication
 
 - **Persistent TCP connection** — one connection is opened and reused for all polling and writes, instead of reconnecting every update cycle. This is significantly gentler on RTU-to-TCP gateways, most of which allow only a few simultaneous client connections (the popular USR-W610 allows 3). Automatic reconnect on connection loss.

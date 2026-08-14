@@ -271,7 +271,37 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                 await self._async_drop_client()
                 raise UpdateFailed(f"Error communicating with device: {e}")
 
+        self._add_calculated_values(data)
         return data
+
+    @staticmethod
+    def _add_calculated_values(data: dict) -> None:
+        """Derive thermal power and live COP from the raw readings.
+
+        Thermal power (kW) = flow (m³/h) x dT (K) x 1.163 kWh/(m³·K).
+        Positive while heating the water, negative while cooling.
+        COP = |thermal| / electrical, only while the compressor runs with
+        meaningful load — otherwise None so HA shows "unknown" instead of
+        a bogus number.
+        """
+        inlet = data.get("b1")
+        outlet = data.get("b2")
+        flow = data.get("flow")
+        elec = data.get("compressor_power")
+        freq = data.get("compressor")
+
+        thermal = None
+        if None not in (inlet, outlet, flow):
+            thermal = round(flow * (outlet - inlet) * 1.163, 2)
+        data["thermal_power"] = thermal
+
+        cop = None
+        if thermal is not None and freq and elec is not None and elec >= 0.2:
+            ratio = abs(thermal) / elec
+            # Guard against sensor glitches (COP outside 0..15 is not real)
+            if 0 < ratio <= 15:
+                cop = round(ratio, 2)
+        data["cop"] = cop
 
     async def api_write_register(self, address: int, value: int, device_id: int) -> None:
         """Write a single holding register."""
