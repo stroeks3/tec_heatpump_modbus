@@ -109,6 +109,12 @@ SENSORS = [
     # Energy-weighted average COP over the past hour — averages the register
     # quantization noise away, so it is also meaningful at low loads.
     { "unique_id": "cop_1h", "translation_key": "cop_1h", "name": "COP (1h Average)", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+    # Energy-weighted COP since local midnight, from the persistent counters.
+    { "unique_id": "cop_daily", "translation_key": "cop_daily", "name": "COP (Today)", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+    # Cumulative energy counters (persist across restarts). Thermal counts
+    # |heat| delivered to the water (heating and cooling both add).
+    { "unique_id": "thermal_energy", "translation_key": "thermal_energy", "name": "Thermal Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
+    { "unique_id": "compressor_energy", "translation_key": "compressor_energy", "name": "Compressor Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
     # Note: energy_consumed and energy_produced are commented out as the exact values and meanings are not yet known
     # { "unique_id": "energy_consumed", "translation_key": "energy_consumed", "name": "Total Energy Consumed", "address": 22, "data_type": "uint16", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },
     # { "unique_id": "energy_produced", "translation_key": "energy_produced", "name": "Total Energy Produced", "address": 23, "data_type": "uint16", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },

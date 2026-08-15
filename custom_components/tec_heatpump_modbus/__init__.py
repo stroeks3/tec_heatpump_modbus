@@ -12,6 +12,8 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 from .const import (
     CONF_NAME,
     CONF_DEVICE_ID,
@@ -128,6 +130,18 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         # Rolling window of (monotonic time, |thermal kW|, electrical kW)
         # samples for the 1h-average COP
         self._cop_samples: deque = deque()
+        # Persistent energy counters (kJ) for the energy sensors and the
+        # daily COP; survive restarts via HA storage.
+        self._store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.energy")
+        self._energy = {
+            "thermal_kj": 0.0,
+            "elec_kj": 0.0,
+            "day": None,
+            "day_start_thermal_kj": 0.0,
+            "day_start_elec_kj": 0.0,
+        }
+        self._last_poll_t = None
+        self._last_store_save = 0.0
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -180,8 +194,15 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         except Exception:  # noqa: BLE001 - best effort cleanup
             pass
 
+    async def _async_setup(self) -> None:
+        """Load the persisted energy counters before the first refresh."""
+        stored = await self._store.async_load()
+        if stored:
+            self._energy.update(stored)
+
     async def async_close(self) -> None:
         """Close the Modbus connection (called on unload)."""
+        await self._store.async_save(dict(self._energy))
         async with self._modbus_lock:
             await self._async_drop_client()
             self._client = None
@@ -315,9 +336,13 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
 
         # --- 1h energy-weighted average COP ---
         now = time.monotonic()
-        # Only samples with the compressor actually consuming count;
-        # standby noise then contributes nothing to either sum.
-        if thermal is not None and elec is not None and elec >= 0.2:
+        # Samples count while the compressor RUNS (freq > 0). Selecting by
+        # state instead of by measured power avoids selection bias: at very
+        # low loads the 0.1 kW power register rounds down half the time, and
+        # dropping exactly those samples would systematically under-count
+        # the electrical energy (inflating the COP). Standby (freq = 0)
+        # still contributes nothing.
+        if thermal is not None and elec is not None and freq:
             self._cop_samples.append((now, abs(thermal), elec))
         cutoff = now - 3600
         while self._cop_samples and self._cop_samples[0][0] < cutoff:
@@ -341,6 +366,46 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             if 0 < ratio <= 15:
                 cop_1h = round(ratio, 2)
         data["cop_1h"] = cop_1h
+
+        # --- Persistent energy counters + daily COP ---
+        e = self._energy
+        today = dt_util.now().date().isoformat()
+        if e["day"] != today:
+            # Local midnight rollover: snapshot the counters as the
+            # baseline for today's COP
+            e["day"] = today
+            e["day_start_thermal_kj"] = e["thermal_kj"]
+            e["day_start_elec_kj"] = e["elec_kj"]
+
+        dt_s = 0.0
+        if self._last_poll_t is not None:
+            # Cap the gap so restarts/hiccups don't fabricate energy
+            dt_s = min(now - self._last_poll_t, 30.0)
+        self._last_poll_t = now
+        # Same state-based criterion as the 1h window (see above)
+        if dt_s > 0 and thermal is not None and elec is not None and freq:
+            e["thermal_kj"] += abs(thermal) * dt_s
+            e["elec_kj"] += elec * dt_s
+
+        data["thermal_energy"] = round(e["thermal_kj"] / 3600.0, 2)
+        data["compressor_energy"] = round(e["elec_kj"] / 3600.0, 2)
+
+        cop_daily = None
+        day_thermal = e["thermal_kj"] - e["day_start_thermal_kj"]
+        day_elec = e["elec_kj"] - e["day_start_elec_kj"]
+        # 0.1 kWh = 360 kJ minimum consumed energy today
+        if day_elec >= 360.0:
+            ratio = day_thermal / day_elec
+            if 0 < ratio <= 15:
+                cop_daily = round(ratio, 2)
+        data["cop_daily"] = cop_daily
+
+        # Persist periodically so the counters also survive a crash or
+        # power loss (a plain debounce would be postponed by every poll
+        # and only ever flush on clean shutdown).
+        if now - self._last_store_save >= 300:
+            self._last_store_save = now
+            self._store.async_delay_save(lambda: dict(self._energy), 1)
 
     async def api_write_register(self, address: int, value: int, device_id: int) -> None:
         """Write a single holding register."""
