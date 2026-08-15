@@ -336,9 +336,13 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
 
         # --- 1h energy-weighted average COP ---
         now = time.monotonic()
-        # Only samples with the compressor actually consuming count;
-        # standby noise then contributes nothing to either sum.
-        if thermal is not None and elec is not None and elec >= 0.2:
+        # Samples count while the compressor RUNS (freq > 0). Selecting by
+        # state instead of by measured power avoids selection bias: at very
+        # low loads the 0.1 kW power register rounds down half the time, and
+        # dropping exactly those samples would systematically under-count
+        # the electrical energy (inflating the COP). Standby (freq = 0)
+        # still contributes nothing.
+        if thermal is not None and elec is not None and freq:
             self._cop_samples.append((now, abs(thermal), elec))
         cutoff = now - 3600
         while self._cop_samples and self._cop_samples[0][0] < cutoff:
@@ -378,7 +382,8 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             # Cap the gap so restarts/hiccups don't fabricate energy
             dt_s = min(now - self._last_poll_t, 30.0)
         self._last_poll_t = now
-        if dt_s > 0 and thermal is not None and elec is not None and elec >= 0.2:
+        # Same state-based criterion as the 1h window (see above)
+        if dt_s > 0 and thermal is not None and elec is not None and freq:
             e["thermal_kj"] += abs(thermal) * dt_s
             e["elec_kj"] += elec * dt_s
 
