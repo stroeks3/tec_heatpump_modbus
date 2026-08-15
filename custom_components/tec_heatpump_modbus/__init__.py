@@ -141,6 +141,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             "day_start_elec_kj": 0.0,
         }
         self._last_poll_t = None
+        self._last_store_save = 0.0
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -394,8 +395,12 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                 cop_daily = round(ratio, 2)
         data["cop_daily"] = cop_daily
 
-        # Persist (debounced) so the counters survive restarts
-        self._store.async_delay_save(lambda: dict(self._energy), 60)
+        # Persist periodically so the counters also survive a crash or
+        # power loss (a plain debounce would be postponed by every poll
+        # and only ever flush on clean shutdown).
+        if now - self._last_store_save >= 300:
+            self._last_store_save = now
+            self._store.async_delay_save(lambda: dict(self._energy), 1)
 
     async def api_write_register(self, address: int, value: int, device_id: int) -> None:
         """Write a single holding register."""
