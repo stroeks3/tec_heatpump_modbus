@@ -59,6 +59,21 @@ Control your heat pump by adjusting writable registers:
 - Note: electrical power is the compressor inverter reading — the backup
   E-heater (separate circuit) is not included in any COP.
 
+### ⚡ Compressor Current & Refined Power
+
+- **Compressor Current (Motor / AC)** — the current readings the unit reports,
+  useful diagnostics in their own right
+- **Compressor Power (Refined)** — the power register steps in 0.1 kW, so at
+  minimum compressor speed it sticks to one value while the actual draw varies.
+  The integration fits a line through (current, power) pairs collected where
+  the register *is* reliable (≥ 0.5 kW), then uses that line to interpolate
+  below it. **Self-calibrating**, so it adapts to your unit rather than relying
+  on hard-coded constants, and it falls back to the raw register until enough
+  data is gathered. The COP sensors use this refined value.
+- **Compressor Frequency Requested** — the PID's requested speed alongside the
+  actual one. When the firmware throttles for pressure or discharge protection,
+  the two diverge and you can see it happen.
+
 ### 🔌 Robust Modbus Communication
 
 - **Persistent TCP connection** — one connection is opened and reused for all polling and writes, instead of reconnecting every update cycle. This is significantly gentler on RTU-to-TCP gateways, most of which allow only a few simultaneous client connections (the popular USR-W610 allows 3). Automatic reconnect on connection loss.
@@ -231,6 +246,11 @@ the UI when active and work directly with notification automations and blueprint
 - LP/HP alarm count exceeded (24h protection counters)
 - **Inverter Alarm** (latched IGBT failure bit — observed and verified live on an
   RS07V/LF during a real inverter trip)
+
+The outlet-temperature alarms carry a two-minute delay: they briefly trip when
+the three-way valve switches back from the DHW circuit and the sensor still
+sees hot tank water. That transient is not a fault, so it no longer raises an
+alarm — a genuine fault persists and still comes through.
 
 ### Status Sensors — Discrete Inputs (7)
 

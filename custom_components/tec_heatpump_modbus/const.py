@@ -96,6 +96,14 @@ SENSORS = [
     { "unique_id": "operating_hours", "translation_key": "operating_hours", "name": "Operating Hours", "address": 18, "data_type": "int16", "unit": "h", "device_class": SensorDeviceClass.DURATION, "function": 4, "state_class": SensorStateClass.TOTAL },
     { "unique_id": "operational_state", "translation_key": "operational_state", "name": "Operating State", "address": 20, "data_type": "int16", "function": 4, "value_map": UNIT_STATE_MAPPING, "device_class": SensorDeviceClass.ENUM, "state_class": None },
     { "unique_id": "compressor_power", "translation_key": "compressor_power", "name": "Compressor Power", "address": 26, "data_type": "int16", "unit": "kW", "device_class": SensorDeviceClass.POWER, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
+    # Compressor current — finer resolution (0.1 A ≈ 23 W) than the power
+    # register (0.1 kW), which is what makes the refined power estimate possible.
+    { "unique_id": "comp_current_motor", "translation_key": "comp_current_motor", "name": "Compressor Current (Motor)", "address": 24, "data_type": "int16", "unit": "A", "device_class": SensorDeviceClass.CURRENT, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "comp_current_ac", "translation_key": "comp_current_ac", "name": "Compressor Current (AC)", "address": 25, "data_type": "int16", "unit": "A", "device_class": SensorDeviceClass.CURRENT, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
+    # Requested compressor speed (PID output). Differs from the actual speed
+    # whenever the firmware throttles for pressure or discharge protection —
+    # comparing the two makes that intervention visible.
+    { "unique_id": "freq_requested", "translation_key": "freq_requested", "name": "Compressor Frequency Requested", "address": 29, "data_type": "int16", "unit": "Hz", "device_class": SensorDeviceClass.FREQUENCY, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
 
     # Calculated sensors — derived in the coordinator from the readings above,
     # no Modbus register of their own.
@@ -105,6 +113,10 @@ SENSORS = [
     # Live COP: |thermal power| / compressor electrical power. Only while the
     # compressor draws >= 0.5 kW (power register resolution is 0.1 kW);
     # otherwise unknown.
+    # Refined electrical power: interpolates within the 0.1 kW quantisation of
+    # the power register using compressor current, via a self-calibrating fit.
+    # Falls back to the raw register until enough calibration data is gathered.
+    { "unique_id": "power_refined", "translation_key": "power_refined", "name": "Compressor Power (Refined)", "unit": "kW", "device_class": SensorDeviceClass.POWER, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
     { "unique_id": "cop", "translation_key": "cop", "name": "COP", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
     # Energy-weighted average COP over the past hour — averages the register
     # quantization noise away, so it is also meaningful at low loads.
@@ -132,11 +144,16 @@ SENSORS = [
 # Alarm bits (Discrete Inputs) exposed as binary sensors with
 # device_class "problem" so they surface as real alarms in the UI,
 # in notifications and in voice assistants.
+# "delay_on" (seconds): the bit must stay set this long before the sensor
+# reports a problem. The outlet-temperature alarms briefly trip when the
+# three-way valve switches back from the DHW circuit and the sensor still
+# sees hot tank water — a transient of well under a minute that is not a
+# fault. Without this, every DHW cycle would fire a false alarm.
 BINARY_SENSORS = [
     { "unique_id": "al01", "translation_key": "al01", "name": "Low Pressure Alarm", "address": 1, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
     { "unique_id": "al02", "translation_key": "al02", "name": "High Pressure Alarm", "address": 2, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
-    { "unique_id": "al03", "translation_key": "al03", "name": "Low Outlet Temp Alarm", "address": 3, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
-    { "unique_id": "al05", "translation_key": "al05", "name": "High Outlet Temp Alarm", "address": 5, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
+    { "unique_id": "al03", "translation_key": "al03", "name": "Low Outlet Temp Alarm", "address": 3, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM, "delay_on": 120 },
+    { "unique_id": "al05", "translation_key": "al05", "name": "High Outlet Temp Alarm", "address": 5, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM, "delay_on": 120 },
     { "unique_id": "al17", "translation_key": "al17", "name": "Low Flow Alarm", "address": 6, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
     { "unique_id": "al18", "translation_key": "al18", "name": "LP Alarm Count Exceeded", "address": 7, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
     { "unique_id": "al19", "translation_key": "al19", "name": "HP Alarm Count Exceeded", "address": 8, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },

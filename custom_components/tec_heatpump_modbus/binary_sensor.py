@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -59,18 +60,46 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
 
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{config['unique_id']}"
         self._attr_device_info = coordinator.device_info
+        self._delay_on = config.get("delay_on")
+        self._raw_on_since: float | None = None
 
     @property
     def is_on(self) -> bool | None:
-        """Return True if the alarm bit is set."""
+        """Return True if the alarm bit is set.
+
+        When the definition carries "delay_on", the bit must stay set for
+        that many seconds before it is reported as a problem. This filters
+        the short transient the outlet-temperature alarms produce when the
+        three-way valve switches back from the DHW circuit.
+        """
         value = self.coordinator.data.get(self.entity_description.key)
-        return bool(value) if value is not None else None
+        if value is None:
+            return None
+        raw = bool(value)
+
+        if not self._delay_on:
+            return raw
+
+        if not raw:
+            self._raw_on_since = None
+            return False
+
+        now = time.monotonic()
+        if self._raw_on_since is None:
+            self._raw_on_since = now
+        return (now - self._raw_on_since) >= self._delay_on
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return device specific state attributes."""
-        return {
+        attrs = {
             "address": self._config["address"],
             "device_id": self.coordinator.device_id,
             "function": self._config["function"],
         }
+        if self._delay_on:
+            attrs["delay_on_seconds"] = self._delay_on
+            attrs["raw_bit_set"] = bool(
+                self.coordinator.data.get(self.entity_description.key)
+            )
+        return attrs
