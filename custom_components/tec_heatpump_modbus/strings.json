@@ -86,7 +86,6 @@
       "comp_current_motor": { "name": "Compressor Current (Motor)" },
       "comp_current_ac": { "name": "Compressor Current (AC)" },
       "freq_requested": { "name": "Compressor Frequency Requested" },
-      "power_refined": { "name": "Compressor Power (Refined)" },
       "thermal_power": { "name": "Thermal Power" },
       "cop": { "name": "COP" },
       "cop_1h": { "name": "COP (1h Average)" },

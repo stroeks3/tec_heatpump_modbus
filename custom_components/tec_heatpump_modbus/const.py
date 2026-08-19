@@ -113,10 +113,6 @@ SENSORS = [
     # Live COP: |thermal power| / compressor electrical power. Only while the
     # compressor draws >= 0.5 kW (power register resolution is 0.1 kW);
     # otherwise unknown.
-    # Refined electrical power: interpolates within the 0.1 kW quantisation of
-    # the power register using compressor current, via a self-calibrating fit.
-    # Falls back to the raw register until enough calibration data is gathered.
-    { "unique_id": "power_refined", "translation_key": "power_refined", "name": "Compressor Power (Refined)", "unit": "kW", "device_class": SensorDeviceClass.POWER, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
     { "unique_id": "cop", "translation_key": "cop", "name": "COP", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
     # Energy-weighted average COP over the past hour — averages the register
     # quantization noise away, so it is also meaningful at low loads.

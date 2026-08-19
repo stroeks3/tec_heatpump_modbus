@@ -59,17 +59,11 @@ Control your heat pump by adjusting writable registers:
 - Note: electrical power is the compressor inverter reading — the backup
   E-heater (separate circuit) is not included in any COP.
 
-### ⚡ Compressor Current & Refined Power
+### ⚡ Compressor Diagnostics
 
-- **Compressor Current (Motor / AC)** — the current readings the unit reports,
-  useful diagnostics in their own right
-- **Compressor Power (Refined)** — the power register steps in 0.1 kW, so at
-  minimum compressor speed it sticks to one value while the actual draw varies.
-  The integration fits a line through (current, power) pairs collected where
-  the register *is* reliable (≥ 0.5 kW), then uses that line to interpolate
-  below it. **Self-calibrating**, so it adapts to your unit rather than relying
-  on hard-coded constants, and it falls back to the raw register until enough
-  data is gathered. The COP sensors use this refined value.
+- **Compressor Current (Motor / AC)** — the current readings the unit reports.
+  Finer-grained than the power register (0.1 A ≈ 23 W against 0.1 kW), so they
+  show load changes that the power reading rounds away.
 - **Compressor Frequency Requested** — the PID's requested speed alongside the
   actual one. When the firmware throttles for pressure or discharge protection,
   the two diverge and you can see it happen.

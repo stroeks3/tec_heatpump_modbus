@@ -142,11 +142,6 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         }
         self._last_poll_t = None
         self._last_store_save = 0.0
-        # Self-calibrating current->power fit. Samples are only collected in
-        # the range where the power register is trustworthy (>= 0.5 kW);
-        # the resulting line is then used to interpolate below that.
-        self._pf_samples: deque = deque(maxlen=400)
-        self._pf_fit = None  # (slope, intercept, n)
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -323,52 +318,13 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         inlet = data.get("b1")
         outlet = data.get("b2")
         flow = data.get("flow")
-        elec_raw = data.get("compressor_power")
+        elec = data.get("compressor_power")
         freq = data.get("compressor")
-        current = data.get("comp_current_ac")
 
         thermal = None
         if None not in (inlet, outlet, flow):
             thermal = round(flow * (outlet - inlet) * 1.163, 2)
         data["thermal_power"] = thermal
-
-        # --- refined electrical power ---
-        # The power register steps in 0.1 kW, so at low load it sticks to a
-        # single value while the compressor current keeps varying. Fit a line
-        # through (current, power) pairs gathered where the register IS
-        # reliable (>= 0.5 kW), then use that line to interpolate below it.
-        # Self-calibrating, so it adapts to whatever unit it runs on.
-        if freq and current is not None and elec_raw is not None and elec_raw >= 0.5:
-            self._pf_samples.append((current, elec_raw))
-            if len(self._pf_samples) >= 20:
-                n = len(self._pf_samples)
-                sx = sum(x for x, _ in self._pf_samples)
-                sy = sum(y for _, y in self._pf_samples)
-                sxx = sum(x * x for x, _ in self._pf_samples)
-                sxy = sum(x * y for x, y in self._pf_samples)
-                denom = n * sxx - sx * sx
-                if denom > 0:
-                    slope = (n * sxy - sx * sy) / denom
-                    intercept = (sy - slope * sx) / n
-                    # A physically sensible fit rises with current
-                    if slope > 0:
-                        self._pf_fit = (slope, intercept, n)
-
-        elec = elec_raw
-        if (
-            self._pf_fit is not None
-            and freq
-            and current is not None
-            and elec_raw is not None
-            and elec_raw < 0.5
-        ):
-            slope, intercept, _ = self._pf_fit
-            est = slope * current + intercept
-            # Never negative, and stay within one register step of the raw
-            # reading so a bad fit cannot run away with the value
-            if est > 0:
-                elec = round(min(max(est, elec_raw - 0.05), elec_raw + 0.05), 3)
-        data["power_refined"] = elec
 
         cop = None
         if thermal is not None and freq and elec is not None and elec >= 0.5:
