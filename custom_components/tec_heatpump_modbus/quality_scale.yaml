@@ -1,0 +1,121 @@
+# Self-assessment against the Home Assistant Integration Quality Scale
+# (https://developers.home-assistant.io/docs/core/integration-quality-scale/).
+#
+# This integration is distributed via HACS, not home-assistant/core, so this
+# file is not checked by hassfest and no badge is shown anywhere in HA or
+# HACS. It exists purely so the current status is documented somewhere.
+# Valid `status` values: done, todo, exempt.
+rules:
+  # Bronze
+  action-setup: done
+  appropriate-polling: done
+  brands:
+    status: todo
+    comment: Not yet registered in the home-assistant/brands repository.
+  common-modules: done
+  config-flow: done
+  config-flow-test-coverage: done
+  dependency-transparency: done
+  docs-actions: done
+  docs-conditions:
+    status: exempt
+    comment: No device conditions are provided.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  docs-triggers:
+    status: exempt
+    comment: No device triggers are provided.
+  entity-event-setup:
+    status: exempt
+    comment: Coordinator/polling based only; no entity subscribes to push events.
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions: done
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow:
+    status: exempt
+    comment: Local Modbus TCP device with no credentials/token that can expire.
+  test-coverage:
+    status: todo
+    comment: >
+      Config flow, setup/unload, the write_register service and the read-error
+      log dedup are covered. Not yet covered: platform entities (sensor
+      calculated values such as COP, binary_sensor delay_on debounce, number,
+      button) and the coordinator's Modbus read/write paths in more depth.
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery:
+    status: exempt
+    comment: Modbus TCP gateways have no standard discovery protocol; user enters the IP.
+  discovery-update-info:
+    status: exempt
+    comment: No discovery is used, so there is nothing to update from it.
+  docs-data-update:
+    status: todo
+    comment: README mentions the configurable interval but not the batched-read/persistent-connection mechanism in detail.
+  docs-examples:
+    status: todo
+    comment: Only number.set_value and the write_register service are shown; no broader automation examples.
+  docs-known-limitations:
+    status: todo
+    comment: Limitations are noted inline in a few places; no dedicated "Known Limitations" section.
+  docs-supported-devices:
+    status: todo
+    comment: Only one tested model is mentioned inline; no explicit supported/tested device list.
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases:
+    status: todo
+    comment: Only generic use cases are listed; no concrete worked examples.
+  dynamic-devices:
+    status: exempt
+    comment: Single fixed device per config entry; nothing appears/disappears at runtime.
+  entity-category:
+    status: todo
+    comment: No entity sets entity_category; several diagnostic-style entities (e.g. pump_feedback, eev_step) could use it.
+  entity-device-class: done
+  entity-disabled-by-default:
+    status: todo
+    comment: All 60+ entities are enabled by default; verbose diagnostic entities are candidates to disable by default.
+  entity-translations: done
+  exception-translations:
+    status: todo
+    comment: Exceptions use plain hardcoded messages, not translation_domain/translation_key.
+  icon-translations:
+    status: todo
+    comment: No icons.json; only the refresh button hardcodes an mdi icon.
+  reconfiguration-flow:
+    status: todo
+    comment: No async_step_reconfigure; users must remove and re-add the entry to change host/port/device_id.
+  repair-issues:
+    status: todo
+    comment: No repairs.py / async_create_issue usage.
+  stale-devices:
+    status: exempt
+    comment: Single static device per entry; nothing to mark stale.
+
+  # Platinum
+  async-dependency:
+    status: todo
+    comment: pymodbus's sync client is used via executor jobs, not its native async client.
+  inject-websession:
+    status: exempt
+    comment: Modbus TCP uses raw sockets via pymodbus, not aiohttp; no websession to inject.
+  strict-typing:
+    status: todo
+    comment: No py.typed marker or mypy config; const.py's entity definitions are untyped list[dict] blobs.
