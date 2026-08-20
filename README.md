@@ -59,6 +59,15 @@ Control your heat pump by adjusting writable registers:
 - Note: electrical power is the compressor inverter reading — the backup
   E-heater (separate circuit) is not included in any COP.
 
+### ⚡ Compressor Diagnostics
+
+- **Compressor Current (Motor / AC)** — the current readings the unit reports.
+  Finer-grained than the power register (0.1 A ≈ 23 W against 0.1 kW), so they
+  show load changes that the power reading rounds away.
+- **Compressor Frequency Requested** — the PID's requested speed alongside the
+  actual one. When the firmware throttles for pressure or discharge protection,
+  the two diverge and you can see it happen.
+
 ### 🔌 Robust Modbus Communication
 
 - **Persistent TCP connection** — one connection is opened and reused for all polling and writes, instead of reconnecting every update cycle. This is significantly gentler on RTU-to-TCP gateways, most of which allow only a few simultaneous client connections (the popular USR-W610 allows 3). Automatic reconnect on connection loss.
@@ -231,6 +240,11 @@ the UI when active and work directly with notification automations and blueprint
 - LP/HP alarm count exceeded (24h protection counters)
 - **Inverter Alarm** (latched IGBT failure bit — observed and verified live on an
   RS07V/LF during a real inverter trip)
+
+The outlet-temperature alarms carry a two-minute delay: they briefly trip when
+the three-way valve switches back from the DHW circuit and the sensor still
+sees hot tank water. That transient is not a fault, so it no longer raises an
+alarm — a genuine fault persists and still comes through.
 
 ### Status Sensors — Discrete Inputs (7)
 
