@@ -11,7 +11,7 @@ A comprehensive Home Assistant integration for TEC (The Energy Combination) heat
 ### 📊 Comprehensive Monitoring & Control (60+ entities)
 
 - **30 Number Entities** - Writable settings (setpoints, compressor frequency limits, pump parameters) adjustable directly from the UI, with documented min/max limits enforced
-- **19 Read-Only Sensors** - Temperatures, pressures, flow, power, currents, superheat, operating hours
+- **20 Read-Only Sensors** - Temperatures, pressures, flow, power, currents, superheat, operating hours
 - **14 Discrete Inputs** - Alarms and status indicators for all major components
 - **3 Switches** - AC, DHW (Domestic Hot Water), and SG Function control
 - **1 Refresh Button** - Manual data refresh on demand
@@ -81,6 +81,9 @@ Control your heat pump by adjusting writable registers:
 - **Operating Mode** — whether the unit is in `Heating` or `Cooling`. This is
   the firmware's own mode flag (HR 1), set on the PGDX panel and until now only
   visible there. Read-only over Modbus.
+- **Pump Speed Feedback** — the circulation pump's own speed reading, to be read
+  against the commanded **Pump PWM**. A commanded speed with no feedback is what
+  a stalled pump looks like, which the controller does not flag by itself.
 
 ### 🔌 Robust Modbus Communication
 
@@ -233,7 +236,7 @@ Adjustable directly from the Home Assistant UI (with documented min/max limits e
 
 **Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
 
-### Sensors (19) — Read-Only
+### Sensors (20) — Read-Only
 
 - Water inlet/outlet temperatures
 - Outdoor ambient temperature
@@ -244,6 +247,7 @@ Adjustable directly from the Home Assistant UI (with documented min/max limits e
 - Compressor frequency & operating hours
 - Compressor power consumption and motor/AC currents
 - Suction and discharge superheat, EEV step position
+- Pump PWM commanded and pump speed feedback
 - Unit operating state and heating/cooling mode
 
 ### Alarm Binary Sensors (8)

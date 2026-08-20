@@ -82,6 +82,7 @@
       "y3": { "name": "Pump PWM" },
       "operational_state": { "name": "Operating State" },
       "mode": { "name": "Operating Mode" },
+      "pump_feedback": { "name": "Pump Speed Feedback" },
       "eev_step": { "name": "EEV Position" },
       "suction_superheat": { "name": "Suction Superheat" },
       "discharge_superheat": { "name": "Discharge Superheat" },

@@ -112,6 +112,12 @@ SENSORS = [
     # deliberately carries no device_class: with SensorDeviceClass.TEMPERATURE, Home
     # Assistant would treat 3.5 K as an absolute temperature and convert it to -269.65 C
     # on installations configured in Celsius.
+    # IR 15, the pump's own speed feedback against the commanded PWM on IR 14.
+    # Exposed so the pair can be compared: SAFETY.md records that below EV06 = 23%
+    # the pump can stall without the controller noticing, and a commanded speed with
+    # no feedback is exactly what that looks like. Not yet characterised during a
+    # running cycle - it reads 0.0% in standby - so no derived alarm is built on it.
+    { "unique_id": "pump_feedback", "translation_key": "pump_feedback", "name": "Pump Speed Feedback", "address": 15, "data_type": "int16", "unit": "%", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "eev_step", "translation_key": "eev_step", "name": "EEV Position", "address": 11, "data_type": "int16", "unit": "steps", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "suction_superheat", "translation_key": "suction_superheat", "name": "Suction Superheat", "address": 12, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "discharge_superheat", "translation_key": "discharge_superheat", "name": "Discharge Superheat", "address": 28, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
