@@ -13,10 +13,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, SENSORS
+from .const import SENSORS
 from . import TECHeatPumpCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+# Entities only read from the coordinator's cached data; no direct I/O.
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -25,7 +28,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the TEC Heat Pump sensors from a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     
     entities = [
         TECHeatPumpSensor(coordinator, sensor_config)

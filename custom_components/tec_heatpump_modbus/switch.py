@@ -7,13 +7,18 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, SWITCHES
+from .const import SWITCHES
 from . import TECHeatPumpCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+# Writes are serialized by the coordinator's own Modbus lock, so entities
+# don't need HA to also serialize them.
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -22,7 +27,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the switch platform from a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     entities = [
         TECHeatPumpSwitch(coordinator, switch_config)
@@ -71,8 +76,9 @@ class TECHeatPumpSwitch(CoordinatorEntity[TECHeatPumpCoordinator], SwitchEntity)
                 self.coordinator.device_id
             )
         except Exception as e:
-            _LOGGER.error(f"Failed to turn on switch {self.name}: {e}")
-        await self.coordinator.async_request_refresh()
+            raise HomeAssistantError(f"Failed to turn on switch {self.name}: {e}") from e
+        finally:
+            await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
@@ -84,5 +90,6 @@ class TECHeatPumpSwitch(CoordinatorEntity[TECHeatPumpCoordinator], SwitchEntity)
                 self.coordinator.device_id
             )
         except Exception as e:
-            _LOGGER.error(f"Failed to turn off switch {self.name}: {e}")
-        await self.coordinator.async_request_refresh()
+            raise HomeAssistantError(f"Failed to turn off switch {self.name}: {e}") from e
+        finally:
+            await self.coordinator.async_request_refresh()

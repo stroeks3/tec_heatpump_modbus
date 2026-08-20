@@ -9,10 +9,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, BUTTONS
+from .const import BUTTONS
 from . import TECHeatPumpCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+# Single action per press, serialized by the coordinator itself.
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -21,7 +24,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the button platform from a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     
     async_add_entities(
         TECHeatPumpButton(coordinator, description) for description in BUTTONS

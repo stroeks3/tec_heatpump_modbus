@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.entity import DeviceInfo
@@ -43,12 +44,14 @@ PLATFORMS: list[Platform] = [
 MAX_BITS_PER_READ = 32
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+type TECHeatPumpConfigEntry = ConfigEntry[TECHeatPumpCoordinator]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) -> bool:
     """Set up from a config entry."""
     coordinator = TECHeatPumpCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+    entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def write_register_service(call: ServiceCall):
@@ -64,10 +67,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             None,
         )
         if not sensor_config:
-            _LOGGER.error(
-                f"Service 'write_register': Register '{sensor_name}' is not found or not writable."
+            raise ServiceValidationError(
+                f"Register '{sensor_name}' is not found or not writable."
             )
-            return
         # Convert scaled value back to raw register value (e.g., 21.3°C -> 213).
         # round() instead of int(): int(21.3 / 0.1) truncates to 212.
         raw_value = round(value_to_write / sensor_config.get("scale", 1.0))
@@ -100,12 +102,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) -> bool:
     """Unload a config entry."""
     hass.services.async_remove(DOMAIN, "write_register")
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        coordinator: TECHeatPumpCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
-        await coordinator.async_close()
+        await entry.runtime_data.async_close()
     return unload_ok
 
 
@@ -142,6 +143,9 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         }
         self._last_poll_t = None
         self._last_store_save = 0.0
+        # Function codes currently failing to read; used to log a Modbus
+        # read error only once per outage instead of on every poll.
+        self._logged_read_errors: set[int] = set()
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -251,10 +255,13 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                                 lambda a=addr, c=chunk: read_func(address=a, count=c, device_id=device_id)
                             )
                             if result.isError():
-                                _LOGGER.warning(
-                                    f"Modbus error reading function {function_code} at {addr}: {result}"
-                                )
+                                if function_code not in self._logged_read_errors:
+                                    self._logged_read_errors.add(function_code)
+                                    _LOGGER.warning(
+                                        f"Modbus error reading function {function_code} at {addr}: {result}"
+                                    )
                             else:
+                                self._logged_read_errors.discard(function_code)
                                 for i in range(chunk):
                                     bits_by_addr[addr + i] = result.bits[i]
                             addr += chunk
@@ -275,8 +282,11 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                     )
 
                     if result.isError():
-                        _LOGGER.warning(f"Modbus error reading function {function_code}: {result}")
+                        if function_code not in self._logged_read_errors:
+                            self._logged_read_errors.add(function_code)
+                            _LOGGER.warning(f"Modbus error reading function {function_code}: {result}")
                         continue
+                    self._logged_read_errors.discard(function_code)
 
                     for entity in entities:
                         offset = entity["address"] - min_addr

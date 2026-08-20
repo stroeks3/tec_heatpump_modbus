@@ -195,6 +195,16 @@ Once configured, use the module's IP address when setting up the Home Assistant 
 2. Extract and copy the `custom_components/tec_heatpump_modbus` folder to your Home Assistant `custom_components` directory
 3. Restart Home Assistant
 
+## Removal
+
+1. Go to **Settings → Devices & Services → TEC Heat Pump Modbus**, open the integration and choose **Delete** (three dots menu) for each configured heat pump. This removes the config entry, its device and all entities, and stops the Modbus polling.
+2. If you no longer want the integration available at all:
+   - **HACS install:** open HACS → Integrations → TEC Heat Pump Modbus → three dots (⋮) → **Remove**.
+   - **Manual install:** delete the `custom_components/tec_heatpump_modbus` folder from your Home Assistant config directory.
+3. Restart Home Assistant to complete the removal.
+
+Removing the integration also deletes its persisted per-device energy counters (used for the Thermal/Compressor Energy sensors and daily COP); these cannot be recovered afterwards.
+
 ## Configuration
 
 ### Setup

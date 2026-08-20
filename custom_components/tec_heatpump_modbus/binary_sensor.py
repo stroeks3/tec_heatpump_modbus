@@ -14,10 +14,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, BINARY_SENSORS
+from .const import BINARY_SENSORS
 from . import TECHeatPumpCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+# Entities only read from the coordinator's cached data; no direct I/O.
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -26,7 +29,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the binary sensor platform from a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     entities = [
         TECHeatPumpBinarySensor(coordinator, config)

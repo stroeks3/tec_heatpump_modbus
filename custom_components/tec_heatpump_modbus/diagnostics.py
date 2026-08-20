@@ -14,7 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, BINARY_SENSORS, NUMBERS, SENSORS, SWITCHES
+from .const import BINARY_SENSORS, NUMBERS, SENSORS, SWITCHES
 
 TO_REDACT = {CONF_HOST}
 
@@ -23,7 +23,7 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     data = coordinator.data or {}
 
     def describe(definitions: list[dict[str, Any]]) -> list[dict[str, Any]]:

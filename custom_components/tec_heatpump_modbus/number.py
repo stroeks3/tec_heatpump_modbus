@@ -14,10 +14,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, NUMBERS
+from .const import NUMBERS
 from . import TECHeatPumpCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+# Writes are serialized by the coordinator's own Modbus lock, so entities
+# don't need HA to also serialize them.
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -26,7 +30,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the TEC Heat Pump number entities from a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     entities = [
         TECHeatPumpNumber(coordinator, number_config)
