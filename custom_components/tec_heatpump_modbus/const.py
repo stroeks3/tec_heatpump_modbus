@@ -21,6 +21,10 @@ DEFAULT_TIMEOUT = 5
 
 UNIT_STATE_MAPPING = { 1: "Heating", 2: "Cooling", 3: "Antifreeze", 4: "Defrost", 5: "Standby", 6: "Off", 7: "Starting", 8: "On", 9: "DHW" }
 BINARY_STATE_MAPPING = { 1: "On", 0: "Off" }
+# HR 1. Read-only over Modbus; the mode itself is set on the PGDX panel at
+# manufacturer level (unit must be OFF). Exposed so automations can tell heating
+# season from cooling season without a trip to the panel.
+MODE_MAPPING = { 0: "Heating", 1: "Cooling" }
 BUTTONS: tuple[ButtonEntityDescription, ...] = (
     ButtonEntityDescription(
         key="refresh_data",
@@ -94,6 +98,7 @@ SENSORS = [
     { "unique_id": "y3", "translation_key": "y3", "name": "Pump PWM", "address": 14, "data_type": "int16", "unit": "%", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "b4", "translation_key": "b4", "name": "DHW Tank", "address": 17, "data_type": "int16", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "operating_hours", "translation_key": "operating_hours", "name": "Operating Hours", "address": 18, "data_type": "int16", "unit": "h", "device_class": SensorDeviceClass.DURATION, "function": 4, "state_class": SensorStateClass.TOTAL },
+    { "unique_id": "mode", "translation_key": "mode", "name": "Operating Mode", "address": 1, "data_type": "int16", "function": 3, "value_map": MODE_MAPPING, "device_class": SensorDeviceClass.ENUM, "state_class": None },
     { "unique_id": "operational_state", "translation_key": "operational_state", "name": "Operating State", "address": 20, "data_type": "int16", "function": 4, "value_map": UNIT_STATE_MAPPING, "device_class": SensorDeviceClass.ENUM, "state_class": None },
     { "unique_id": "compressor_power", "translation_key": "compressor_power", "name": "Compressor Power", "address": 26, "data_type": "int16", "unit": "kW", "device_class": SensorDeviceClass.POWER, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     # Compressor current — finer resolution (0.1 A ≈ 23 W) than the power
@@ -103,6 +108,13 @@ SENSORS = [
     # Requested compressor speed (PID output). Differs from the actual speed
     # whenever the firmware throttles for pressure or discharge protection —
     # comparing the two makes that intervention visible.
+    # Refrigerant circuit diagnostics. Superheat is a temperature DIFFERENCE, so it
+    # deliberately carries no device_class: with SensorDeviceClass.TEMPERATURE, Home
+    # Assistant would treat 3.5 K as an absolute temperature and convert it to -269.65 C
+    # on installations configured in Celsius.
+    { "unique_id": "eev_step", "translation_key": "eev_step", "name": "EEV Position", "address": 11, "data_type": "int16", "unit": "steps", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "suction_superheat", "translation_key": "suction_superheat", "name": "Suction Superheat", "address": 12, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "discharge_superheat", "translation_key": "discharge_superheat", "name": "Discharge Superheat", "address": 28, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "freq_requested", "translation_key": "freq_requested", "name": "Compressor Frequency Requested", "address": 29, "data_type": "int16", "unit": "Hz", "device_class": SensorDeviceClass.FREQUENCY, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
 
     # Calculated sensors — derived in the coordinator from the readings above,

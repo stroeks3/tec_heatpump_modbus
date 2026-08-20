@@ -11,7 +11,7 @@ A comprehensive Home Assistant integration for TEC (The Energy Combination) heat
 ### 📊 Comprehensive Monitoring & Control (60+ entities)
 
 - **30 Number Entities** - Writable settings (setpoints, compressor frequency limits, pump parameters) adjustable directly from the UI, with documented min/max limits enforced
-- **15 Read-Only Sensors** - Temperatures, pressures, flow, power consumption, operating hours
+- **19 Read-Only Sensors** - Temperatures, pressures, flow, power, currents, superheat, operating hours
 - **14 Discrete Inputs** - Alarms and status indicators for all major components
 - **3 Switches** - AC, DHW (Domestic Hot Water), and SG Function control
 - **1 Refresh Button** - Manual data refresh on demand
@@ -67,6 +67,20 @@ Control your heat pump by adjusting writable registers:
 - **Compressor Frequency Requested** — the PID's requested speed alongside the
   actual one. When the firmware throttles for pressure or discharge protection,
   the two diverge and you can see it happen.
+
+### 🧊 Refrigerant Circuit Diagnostics
+
+- **Suction Superheat** and **Discharge Superheat** — the earliest warning you
+  get for a refrigerant charge that is drifting, an expansion valve that is not
+  controlling well, or liquid making its way back to the compressor. Both are
+  temperature *differences* in kelvin and carry no `device_class`, so Home
+  Assistant will not mistake them for absolute temperatures.
+- **EEV Position** — the electronic expansion valve's step position. Read it
+  next to the superheat figures: a valve pinned at an end stop has run out of
+  room to regulate, which the superheat alone would not tell you.
+- **Operating Mode** — whether the unit is in `Heating` or `Cooling`. This is
+  the firmware's own mode flag (HR 1), set on the PGDX panel and until now only
+  visible there. Read-only over Modbus.
 
 ### 🔌 Robust Modbus Communication
 
@@ -219,7 +233,7 @@ Adjustable directly from the Home Assistant UI (with documented min/max limits e
 
 **Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
 
-### Sensors (15) — Read-Only
+### Sensors (19) — Read-Only
 
 - Water inlet/outlet temperatures
 - Outdoor ambient temperature
@@ -228,8 +242,9 @@ Adjustable directly from the Home Assistant UI (with documented min/max limits e
 - Low/high pressure side
 - Water flow
 - Compressor frequency & operating hours
-- Compressor power consumption
-- Unit operating state
+- Compressor power consumption and motor/AC currents
+- Suction and discharge superheat, EEV step position
+- Unit operating state and heating/cooling mode
 
 ### Alarm Binary Sensors (8)
 

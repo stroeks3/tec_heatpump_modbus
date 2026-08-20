@@ -262,7 +262,13 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                             data[entity["unique_id"]] = bits_by_addr.get(entity["address"])
                         continue
 
-                    # Register reads: all addresses in one batch for efficiency
+                    # Register reads: all addresses in one batch for efficiency.
+                    # NOTE: this spans min..max, so a single low or high address widens
+                    # the whole block. Modbus FC03/FC04 allow at most 125 registers per
+                    # read. Adding HR 1 (mode) in 2026.08.04 took the holding-register
+                    # block to 1..121 = 121 registers, leaving only 4 spare. Any new
+                    # holding register above 125 needs chunking first, the way the bit
+                    # reads above already do.
                     count = max_addr - min_addr + 1
                     result = await self.hass.async_add_executor_job(
                         lambda: read_func(address=min_addr, count=count, device_id=device_id)
