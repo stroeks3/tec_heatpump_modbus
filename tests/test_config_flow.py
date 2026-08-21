@@ -11,7 +11,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.tec_heatpump_modbus.const import (
     CONF_DELAY,
     CONF_DEVICE_ID,
+    CONF_NAME,
     CONF_TIMEOUT,
+    DEFAULT_NAME,
     DOMAIN,
 )
 
@@ -36,7 +38,9 @@ async def test_user_flow_success(hass: HomeAssistant, mock_modbus_client) -> Non
         result["flow_id"], USER_INPUT
     )
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
-    assert result["data"] == USER_INPUT
+    # The name field is optional in the schema and carries a default, so the stored
+    # entry holds one more key than was submitted.
+    assert result["data"] == {**USER_INPUT, CONF_NAME: DEFAULT_NAME}
 
 
 async def test_user_flow_cannot_connect(hass: HomeAssistant, mock_modbus_client) -> None:
