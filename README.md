@@ -11,7 +11,7 @@ A comprehensive Home Assistant integration for TEC (The Energy Combination) heat
 ### 📊 Comprehensive Monitoring & Control (60+ entities)
 
 - **30 Number Entities** - Writable settings (setpoints, compressor frequency limits, pump parameters) adjustable directly from the UI, with documented min/max limits enforced
-- **20 Read-Only Sensors** - Temperatures, pressures, flow, power, currents, superheat, operating hours
+- **25 Read-Only Sensors** - Temperatures, pressures, flow, power, currents, superheat, operating hours
 - **14 Discrete Inputs** - Alarms and status indicators for all major components
 - **3 Switches** - AC, DHW (Domestic Hot Water), and SG Function control
 - **1 Refresh Button** - Manual data refresh on demand
@@ -81,9 +81,24 @@ Control your heat pump by adjusting writable registers:
 - **Operating Mode** — whether the unit is in `Heating` or `Cooling`. This is
   the firmware's own mode flag (HR 1), set on the PGDX panel and until now only
   visible there. Read-only over Modbus.
-- **Pump Speed Feedback** — the circulation pump's own speed reading, to be read
-  against the commanded **Pump PWM**. A commanded speed with no feedback is what
-  a stalled pump looks like, which the controller does not flag by itself.
+- **Pump Speed Feedback** — the circulation pump's own speed reading, published
+  raw. It reads 0 whenever the pump is off, so it works as a running indicator;
+  a commanded speed with no feedback is what a stalled pump looks like, and the
+  controller does not flag that by itself. The unit is unresolved: it read 280
+  against a commanded 90.0%, so it is not a percentage of the command.
+
+### 🔢 Energy Totals From the Unit
+
+- **Unit Thermal Energy Total** and **Unit Electrical Energy Total** — the heat
+  pump's own cumulative energy counters, so COP no longer has to be reconstructed
+  from a power register with 0.1 kW resolution. Confirmed against independently
+  integrated energy over a 77-minute DHW cycle: 3.73 against 3.59.
+- They update roughly every 20 minutes of compressor runtime rather than
+  continuously, so do not read them over a short window. Being 16-bit at 0.1 kWh
+  they also wrap every 6553.5 kWh, which makes the absolute readings useless as
+  lifetime totals but leaves them perfectly good as an incremental source.
+- **AC Enable Status** — the unit's own confirmation that the AC master enable
+  landed, useful if you drive that switch from an automation.
 
 ### 🔌 Robust Modbus Communication
 
@@ -246,7 +261,7 @@ Adjustable directly from the Home Assistant UI (with documented min/max limits e
 
 **Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
 
-### Sensors (20) — Read-Only
+### Sensors (25) — Read-Only
 
 - Water inlet/outlet temperatures
 - Outdoor ambient temperature

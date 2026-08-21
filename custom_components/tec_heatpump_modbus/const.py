@@ -113,11 +113,16 @@ SENSORS = [
     # Assistant would treat 3.5 K as an absolute temperature and convert it to -269.65 C
     # on installations configured in Celsius.
     # IR 15, the pump's own speed feedback against the commanded PWM on IR 14.
+    # Published raw, without a unit: it read 280 against a commanded 90.0%, so it is
+    # plainly not a percentage of the command, and a full DHW cycle could not
+    # calibrate it because both values stayed flat throughout. Most likely tenths of
+    # an RPM. It does reliably read 0 when the pump is off, so it works as a running
+    # indicator - which is what SAFETY.md's stalled-pump concern actually needs.
     # Exposed so the pair can be compared: SAFETY.md records that below EV06 = 23%
     # the pump can stall without the controller noticing, and a commanded speed with
     # no feedback is exactly what that looks like. Not yet characterised during a
     # running cycle - it reads 0.0% in standby - so no derived alarm is built on it.
-    { "unique_id": "pump_feedback", "translation_key": "pump_feedback", "name": "Pump Speed Feedback", "address": 15, "data_type": "int16", "unit": "%", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "pump_feedback", "translation_key": "pump_feedback", "name": "Pump Speed Feedback", "address": 15, "data_type": "int16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "eev_step", "translation_key": "eev_step", "name": "EEV Position", "address": 11, "data_type": "int16", "unit": "steps", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "suction_superheat", "translation_key": "suction_superheat", "name": "Suction Superheat", "address": 12, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "discharge_superheat", "translation_key": "discharge_superheat", "name": "Discharge Superheat", "address": 28, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
@@ -141,23 +146,26 @@ SENSORS = [
     # |heat| delivered to the water (heating and cooling both add).
     { "unique_id": "thermal_energy", "translation_key": "thermal_energy", "name": "Thermal Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
     { "unique_id": "compressor_energy", "translation_key": "compressor_energy", "name": "Compressor Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
-    # Four registers the unit maintains that are not yet explained. They were left
-    # commented out before under the names "Total Energy Consumed" / "Total Energy
-    # Produced", which had IR 22 and IR 23 the wrong way round: IR 22 is the larger
-    # of the two, so reading it as consumption would imply a COP of 0.27.
+    # IR 22 and IR 23 are the unit's own energy totals, confirmed 2026-08-21 by
+    # comparing their steps against energy integrated independently over the same
+    # 77-minute DHW cycle: +41 / +11 steps against 4.81 / 1.34 kWh, giving 3.73
+    # against 3.59. At scale 1 the electrical counter would claim 11 kWh where 1.34
+    # was measured, so the scale is 0.1 kWh per step.
     #
-    # What is known: IR 22 and IR 23 update in blocks rather than continuously, and
-    # their ratio keeps landing in heat-pump territory - 8/3 over one DHW boost,
-    # 160/46 = 3.48 over five days, 37370/10235 = 3.65 over the unit's lifetime. What
-    # contradicts a clean energy pair: IR 23 once stayed put across a full compressor
-    # hour while IR 22 advanced, so the two do not share an update trigger.
-    #
-    # Exposed with deliberately neutral names so the entity IDs survive whatever the
-    # answer turns out to be, and with no device_class so an unproven counter cannot
-    # wander into the Energy dashboard. Once the meaning is settled the display names
-    # can change without breaking anyone's entity IDs.
-    { "unique_id": "unit_counter_ir22", "translation_key": "unit_counter_ir22", "name": "Unit Counter IR22", "address": 22, "data_type": "uint16", "unit": "kWh", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },
-    { "unique_id": "unit_counter_ir23", "translation_key": "unit_counter_ir23", "name": "Unit Counter IR23", "address": 23, "data_type": "uint16", "unit": "kWh", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },
+    # Two caveats that matter for how these are used:
+    #   * They update roughly every 20 minutes of compressor runtime, not
+    #     continuously. That cycle's last 19 minutes were still unbooked half an
+    #     hour later. Never read them over a short window.
+    #   * 16 bits at 0.1 kWh wraps every 6553.5 kWh, so the absolute readings are
+    #     not lifetime totals. TOTAL_INCREASING handles a wrap as a meter reset,
+    #     which is the behaviour we want.
+    { "unique_id": "unit_thermal_energy", "translation_key": "unit_thermal_energy", "name": "Unit Thermal Energy Total", "address": 22, "data_type": "uint16", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "function": 4, "scale": 0.1, "state_class": SensorStateClass.TOTAL_INCREASING },
+    { "unique_id": "unit_electrical_energy", "translation_key": "unit_electrical_energy", "name": "Unit Electrical Energy Total", "address": 23, "data_type": "uint16", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "function": 4, "scale": 0.1, "state_class": SensorStateClass.TOTAL_INCREASING },
+    # Still unidentified. IR 16 held 52041 for an hour and a half of full load, so
+    # it is not a counter - more likely a fixed code. IR 27 runs a sawtooth from 0
+    # to roughly 34-41 and back over 4-7 minutes, but only during the last 20
+    # minutes of a DHW cycle when discharge superheat is high, and the superheat
+    # drops on every reset. Reads as a periodic valve or oil-return action.
     { "unique_id": "unit_counter_ir16", "translation_key": "unit_counter_ir16", "name": "Unit Counter IR16", "address": 16, "data_type": "uint16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "unit_counter_ir27", "translation_key": "unit_counter_ir27", "name": "Unit Counter IR27", "address": 27, "data_type": "uint16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
 
@@ -168,6 +176,11 @@ SENSORS = [
     { "unique_id": "d07", "translation_key": "d07", "name": "Crankcase Heater", "address": 33, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
     { "unique_id": "no1", "translation_key": "no1", "name": "DHW Circ Pump", "address": 34, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
     { "unique_id": "no8", "translation_key": "no8", "name": "DHW E-Heater", "address": 36, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
+    # Mirrors coil 1 (the AC master enable): it appeared the moment coil 1 went
+    # TRUE again at 09:30:17 on 2026-08-21 and was absent for the whole period the
+    # DHW blockade held DI4 off. Exposed so an automation writing that coil can
+    # confirm the unit actually acted on it.
+    { "unique_id": "di31", "translation_key": "di31", "name": "AC Enable Status", "address": 31, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
     { "unique_id": "no6", "translation_key": "no6", "name": "Gas Boiler", "address": 39, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None }
 ]
 

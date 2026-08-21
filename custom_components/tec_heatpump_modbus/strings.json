@@ -82,8 +82,8 @@
       "y3": { "name": "Pump PWM" },
       "operational_state": { "name": "Operating State" },
       "mode": { "name": "Operating Mode" },
-      "unit_counter_ir22": { "name": "Unit Counter IR22" },
-      "unit_counter_ir23": { "name": "Unit Counter IR23" },
+      "unit_thermal_energy": { "name": "Unit Thermal Energy Total" },
+      "unit_electrical_energy": { "name": "Unit Electrical Energy Total" },
       "unit_counter_ir16": { "name": "Unit Counter IR16" },
       "unit_counter_ir27": { "name": "Unit Counter IR27" },
       "pump_feedback": { "name": "Pump Speed Feedback" },
@@ -107,6 +107,7 @@
       "no4": { "name": "AC Heater" },
       "no6": { "name": "Gas Boiler" },
       "no8": { "name": "DHW E-Heater" },
+      "di31": { "name": "AC Enable Status" },
       "d07": { "name": "Crankcase Heater" }
     },
     "binary_sensor": {
