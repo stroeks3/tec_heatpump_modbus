@@ -141,9 +141,25 @@ SENSORS = [
     # |heat| delivered to the water (heating and cooling both add).
     { "unique_id": "thermal_energy", "translation_key": "thermal_energy", "name": "Thermal Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
     { "unique_id": "compressor_energy", "translation_key": "compressor_energy", "name": "Compressor Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
-    # Note: energy_consumed and energy_produced are commented out as the exact values and meanings are not yet known
-    # { "unique_id": "energy_consumed", "translation_key": "energy_consumed", "name": "Total Energy Consumed", "address": 22, "data_type": "uint16", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },
-    # { "unique_id": "energy_produced", "translation_key": "energy_produced", "name": "Total Energy Produced", "address": 23, "data_type": "uint16", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },
+    # Four registers the unit maintains that are not yet explained. They were left
+    # commented out before under the names "Total Energy Consumed" / "Total Energy
+    # Produced", which had IR 22 and IR 23 the wrong way round: IR 22 is the larger
+    # of the two, so reading it as consumption would imply a COP of 0.27.
+    #
+    # What is known: IR 22 and IR 23 update in blocks rather than continuously, and
+    # their ratio keeps landing in heat-pump territory - 8/3 over one DHW boost,
+    # 160/46 = 3.48 over five days, 37370/10235 = 3.65 over the unit's lifetime. What
+    # contradicts a clean energy pair: IR 23 once stayed put across a full compressor
+    # hour while IR 22 advanced, so the two do not share an update trigger.
+    #
+    # Exposed with deliberately neutral names so the entity IDs survive whatever the
+    # answer turns out to be, and with no device_class so an unproven counter cannot
+    # wander into the Energy dashboard. Once the meaning is settled the display names
+    # can change without breaking anyone's entity IDs.
+    { "unique_id": "unit_counter_ir22", "translation_key": "unit_counter_ir22", "name": "Unit Counter IR22", "address": 22, "data_type": "uint16", "unit": "kWh", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },
+    { "unique_id": "unit_counter_ir23", "translation_key": "unit_counter_ir23", "name": "Unit Counter IR23", "address": 23, "data_type": "uint16", "unit": "kWh", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.TOTAL_INCREASING },
+    { "unique_id": "unit_counter_ir16", "translation_key": "unit_counter_ir16", "name": "Unit Counter IR16", "address": 16, "data_type": "uint16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "unit_counter_ir27", "translation_key": "unit_counter_ir27", "name": "Unit Counter IR27", "address": 27, "data_type": "uint16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
 
     # Discrete Inputs (read-only) - Function 2
     { "unique_id": "secondary_pump", "translation_key": "secondary_pump", "name": "Secondary Pump", "address": 25, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
