@@ -81,7 +81,7 @@
       "compressor": { "name": "Compressor Frequency" },
       "y3": { "name": "Pump PWM" },
       "operational_state": { "name": "Operating State" },
-      "mode": { "name": "Operating Mode" },
+      "mode": { "name": "Season Mode" },
       "unit_thermal_energy": { "name": "Unit Thermal Energy Total" },
       "unit_electrical_energy": { "name": "Unit Electrical Energy Total" },
       "unit_counter_ir16": { "name": "Unit Counter IR16" },

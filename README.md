@@ -78,9 +78,10 @@ Control your heat pump by adjusting writable registers:
 - **EEV Position** — the electronic expansion valve's step position. Read it
   next to the superheat figures: a valve pinned at an end stop has run out of
   room to regulate, which the superheat alone would not tell you.
-- **Operating Mode** — whether the unit is in `Heating` or `Cooling`. This is
+- **Season Mode** — whether the unit is set to `Heating` or `Cooling`. This is
   the firmware's own mode flag (HR 1), set on the PGDX panel and until now only
-  visible there. Read-only over Modbus.
+  visible there. Read-only over Modbus. Note that it reads `Cooling` all summer
+  whatever the unit is doing, so it is not a substitute for **Operating State**.
 - **Pump Speed Feedback** — the circulation pump's own speed reading, published
   raw. It reads 0 whenever the pump is off, so it works as a running indicator;
   a commanded speed with no feedback is what a stalled pump looks like, and the

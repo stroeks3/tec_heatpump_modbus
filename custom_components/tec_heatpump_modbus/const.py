@@ -24,6 +24,9 @@ BINARY_STATE_MAPPING = { 1: "On", 0: "Off" }
 # HR 1. Read-only over Modbus; the mode itself is set on the PGDX panel at
 # manufacturer level (unit must be OFF). Exposed so automations can tell heating
 # season from cooling season without a trip to the panel.
+# Named "Season Mode" rather than "Operating Mode" on purpose: it reads Cooling all
+# summer regardless of what the unit is doing, and sitting next to an Operating
+# State of Standby that was read as "it is cooling right now".
 MODE_MAPPING = { 0: "Heating", 1: "Cooling" }
 BUTTONS: tuple[ButtonEntityDescription, ...] = (
     ButtonEntityDescription(
@@ -98,7 +101,7 @@ SENSORS = [
     { "unique_id": "y3", "translation_key": "y3", "name": "Pump PWM", "address": 14, "data_type": "int16", "unit": "%", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "b4", "translation_key": "b4", "name": "DHW Tank", "address": 17, "data_type": "int16", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "operating_hours", "translation_key": "operating_hours", "name": "Operating Hours", "address": 18, "data_type": "int16", "unit": "h", "device_class": SensorDeviceClass.DURATION, "function": 4, "state_class": SensorStateClass.TOTAL },
-    { "unique_id": "mode", "translation_key": "mode", "name": "Operating Mode", "address": 1, "data_type": "int16", "function": 3, "value_map": MODE_MAPPING, "device_class": SensorDeviceClass.ENUM, "state_class": None },
+    { "unique_id": "mode", "translation_key": "mode", "name": "Season Mode", "address": 1, "data_type": "int16", "function": 3, "value_map": MODE_MAPPING, "device_class": SensorDeviceClass.ENUM, "state_class": None },
     { "unique_id": "operational_state", "translation_key": "operational_state", "name": "Operating State", "address": 20, "data_type": "int16", "function": 4, "value_map": UNIT_STATE_MAPPING, "device_class": SensorDeviceClass.ENUM, "state_class": None },
     { "unique_id": "compressor_power", "translation_key": "compressor_power", "name": "Compressor Power", "address": 26, "data_type": "int16", "unit": "kW", "device_class": SensorDeviceClass.POWER, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     # Compressor current — finer resolution (0.1 A ≈ 23 W) than the power
