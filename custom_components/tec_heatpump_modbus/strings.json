@@ -87,6 +87,7 @@
       "unit_counter_ir16": { "name": "Unit Counter IR16" },
       "unit_counter_ir27": { "name": "Unit Counter IR27" },
       "pump_feedback": { "name": "Pump Speed Feedback" },
+      "st21": { "name": "DHW Water Limit" },
       "eev_step": { "name": "EEV Position" },
       "suction_superheat": { "name": "Suction Superheat" },
       "discharge_superheat": { "name": "Discharge Superheat" },

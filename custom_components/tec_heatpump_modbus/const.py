@@ -126,6 +126,15 @@ SENSORS = [
     # no feedback is exactly what that looks like. Not yet characterised during a
     # running cycle - it reads 0.0% in standby - so no derived alarm is built on it.
     { "unique_id": "pump_feedback", "translation_key": "pump_feedback", "name": "Pump Speed Feedback", "address": 15, "data_type": "int16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    # HR 100 = ST21, the absolute water-temperature ceiling the unit holds itself to
+    # during DHW. It is what actually ends a DHW cycle: once the tank is warm enough
+    # that reaching it would need water above this figure, the compressor stops and
+    # retries after its minimum-off time. Measured 2026-08-22: two consecutive stops
+    # both at an outlet of 58.1 against ST21 = 58.0.
+    # Read-only here. The manual has it as a PGDX-panel parameter, and writing it is
+    # the wrong lever anyway - discharge was already 101 C and high pressure 37 bar at
+    # those stops.
+    { "unique_id": "st21", "translation_key": "st21", "name": "DHW Water Limit", "address": 100, "data_type": "int16", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "function": 3, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "eev_step", "translation_key": "eev_step", "name": "EEV Position", "address": 11, "data_type": "int16", "unit": "steps", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "suction_superheat", "translation_key": "suction_superheat", "name": "Suction Superheat", "address": 12, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "discharge_superheat", "translation_key": "discharge_superheat", "name": "Discharge Superheat", "address": 28, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },

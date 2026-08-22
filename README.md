@@ -11,7 +11,7 @@ A comprehensive Home Assistant integration for TEC (The Energy Combination) heat
 ### 📊 Comprehensive Monitoring & Control (60+ entities)
 
 - **30 Number Entities** - Writable settings (setpoints, compressor frequency limits, pump parameters) adjustable directly from the UI, with documented min/max limits enforced
-- **25 Read-Only Sensors** - Temperatures, pressures, flow, power, currents, superheat, operating hours
+- **26 Read-Only Sensors** - Temperatures, pressures, flow, power, currents, superheat, operating hours
 - **14 Discrete Inputs** - Alarms and status indicators for all major components
 - **3 Switches** - AC, DHW (Domestic Hot Water), and SG Function control
 - **1 Refresh Button** - Manual data refresh on demand
@@ -87,6 +87,13 @@ Control your heat pump by adjusting writable registers:
   a commanded speed with no feedback is what a stalled pump looks like, and the
   controller does not flag that by itself. The unit is unresolved: it read 280
   against a commanded 90.0%, so it is not a percentage of the command.
+
+- **DHW Water Limit** — ST21, the absolute water temperature the unit holds itself
+  to while heating hot water. This is what actually ends a DHW cycle: once the tank
+  is warm enough that reaching it would need water hotter than this, the compressor
+  stops and retries after its minimum-off time. If your hot-water cycles keep
+  restarting a few minutes apart without reaching setpoint, compare this figure with
+  **Water Outlet** — they will be equal at every stop.
 
 ### 🔢 Energy Totals From the Unit
 
@@ -262,7 +269,7 @@ Adjustable directly from the Home Assistant UI (with documented min/max limits e
 
 **Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
 
-### Sensors (25) — Read-Only
+### Sensors (26) — Read-Only
 
 - Water inlet/outlet temperatures
 - Outdoor ambient temperature
