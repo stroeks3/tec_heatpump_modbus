@@ -38,7 +38,7 @@ The **setup dialog** is available in English and Dutch.
 
 ### Robust Modbus communication
 
-- **Persistent TCP connection** — one connection is opened and reused for all polling and writes, instead of reconnecting every update cycle. This is significantly gentler on RTU-to-TCP gateways, most of which allow only a few simultaneous client connections (the popular USR-W610 allows 3). Automatic reconnect on connection loss.
+- **Persistent TCP connection** — one connection is opened and reused for all polling and writes, instead of reconnecting every update cycle. This is significantly gentler on RTU-to-TCP gateways, most of which allow only a few simultaneous client connections (the HF2211S used here allows 3). Automatic reconnect on connection loss.
 - Reads and writes are serialized, so a parameter write never collides with a polling cycle
 - Read errors are logged once per function code when they start, not on every poll, so an outage does not flood the log
 
@@ -61,13 +61,15 @@ The **setup dialog** is available in English and Dutch.
 
 A WiFi module (Modbus RTU to TCP/IP gateway) is essential to enable communication between Home Assistant and your TEC heat pump. The heat pump uses Modbus RTU natively, so you need a converter to bridge to TCP/IP for network connectivity.
 
-### Recommended Hardware
+### Hardware
 
-**Tested & Verified:**
-- **[USR-W610 Modbus RTU to WiFi Converter](https://aliexpress.com/item/1005006115167929.html)**
-  - ✅ Easy setup - working within minutes
-  - ✅ Used for building and testing this integration
-  - ✅ Reliable performance
+**Any transparent Modbus RTU to TCP gateway should work.** The integration talks plain Modbus TCP and does not care which brand sits in between. Pick whatever you can source locally.
+
+**What this integration was built and tested with:**
+- **[Hi-Flying HF2211S serial device server (RS485 to WiFi)](https://aliexpress.com/item/1005006115167929.html)**
+  - ✅ Easy setup, working within minutes
+  - ✅ Reliable performance over months of continuous polling
+  - ⚠️ Allows 3 simultaneous TCP clients. Close any other Modbus tool before adding a second one.
   - ⚠️ **Important:** Make sure to choose the correct power adapter for your region when ordering
 
 ### Wiring Instructions
