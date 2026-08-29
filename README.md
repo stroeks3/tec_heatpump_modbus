@@ -4,129 +4,49 @@
 
 > **Disclaimer:** This is an unofficial integration created by the community, not by TEC (The Energy Combination). TEC does not provide support for it. This is a community project - use it entirely at your own risk. Developed and tested with the TEC RS07VLF 7kW (R32) heat pump.
 
-A comprehensive Home Assistant integration for TEC (The Energy Combination) heat pumps using Modbus TCP protocol. Monitor and control your heat pump with 50+ entities for complete visibility and automation.
+Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **84 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
 
 ## Features
 
-### 📊 Comprehensive Monitoring & Control (60+ entities)
+| Platform | Count | What it covers |
+|---|---|---|
+| Sensors | **42** | 28 from the unit's registers, 8 status sensors, 6 calculated |
+| Numbers | **30** | Writable settings, with the manual's min/max limits enforced |
+| Binary sensors | **8** | Alarms, `device_class: problem` |
+| Switches | **3** | AC, DHW, SG Function |
+| Buttons | **1** | Manual refresh |
 
-- **30 Number Entities** - Writable settings (setpoints, compressor frequency limits, pump parameters) adjustable directly from the UI, with documented min/max limits enforced
-- **26 Read-Only Sensors** - Temperatures, pressures, flow, power, currents, superheat, operating hours
-- **14 Discrete Inputs** - Alarms and status indicators for all major components
-- **3 Switches** - AC, DHW (Domestic Hot Water), and SG Function control
-- **1 Refresh Button** - Manual data refresh on demand
+Highlights, each described in full under [Available Entities](#available-entities):
 
-### 🌍 Multi-Language Support
+- **Refrigerant circuit diagnostics** — suction and discharge superheat plus expansion-valve position, the earliest warning you get for a drifting charge or liquid returning to the compressor
+- **Performance sensors** — live thermal power and COP, hourly and daily energy-weighted COP, and the unit's own energy counters
+- **Season Mode and DHW Water Limit** — two firmware parameters that were previously only visible on the PGDX panel, and that explain a lot of otherwise puzzling behaviour
+- **Compressor diagnostics** — requested versus actual frequency, so you can watch the firmware throttle for pressure or discharge protection
 
-- Full English translation (default)
-- Dutch (Nederlands) translation included
-- Translation-ready architecture for additional languages
+### Configuration
 
-### ⚙️ Easy Configuration
-
-- User-friendly setup via Home Assistant UI
+- Setup through the Home Assistant UI, no YAML
 - Configurable update interval and timeout
-- Support for multiple heat pumps
+- Multiple heat pumps supported
 - Optional custom device naming
 
-### 🔧 Writing Values
+### Languages
 
-Control your heat pump by adjusting writable registers:
+The **setup dialog** is available in English and Dutch.
 
-- **Number entities** (recommended) - set values directly in the UI or via `number.set_value`; min/max limits are enforced
-- `tec_heatpump_modbus.write_register` service - deprecated, kept for backwards compatibility
-- Automatic value scaling and conversion (e.g. 21.3°C ↔ raw register value 213)
+**Entity names are English only, deliberately.** Translating them would make entity IDs depend on the installation's locale, which breaks dashboards and automations when they are shared. The English source strings live in `strings.json`; the Dutch translation in `translations/nl.json` covers the config and options flow.
 
-### 📈 Calculated Performance Sensors
-
-- **Thermal Power (kW)** — live heat delivered to the water, calculated from
-  water flow × temperature difference (positive = heating, negative = cooling)
-- **COP** — live coefficient of performance (thermal power ÷ compressor
-  electrical power). Only shown while the compressor draws at least 0.5 kW:
-  the power register has 0.1 kW resolution, so below that the reading would
-  be dominated by rounding noise. "Unknown" otherwise, so your statistics
-  stay clean.
-- **COP (1h Average)** — energy-weighted COP over the past hour (total heat ÷
-  total electrical energy). The averaging cancels out register rounding
-  noise, so this one is also meaningful during low-load operation (e.g.
-  summer cooling at minimum compressor speed). Shown once at least 0.05 kWh
-  was consumed within the hour; resets on restart.
-- **COP (Today)** — energy-weighted COP since local midnight, built on
-  persistent energy counters (survives restarts).
-- **Thermal Energy / Compressor Energy (kWh)** — cumulative counters,
-  persisted across restarts. Thermal counts |heat| moved to or from the
-  water (heating and cooling both add). Usable in the HA Energy dashboard.
-- Note: electrical power is the compressor inverter reading — the backup
-  E-heater (separate circuit) is not included in any COP.
-
-### ⚡ Compressor Diagnostics
-
-- **Compressor Current (Motor / AC)** — the current readings the unit reports.
-  Finer-grained than the power register (0.1 A ≈ 23 W against 0.1 kW), so they
-  show load changes that the power reading rounds away.
-- **Compressor Frequency Requested** — the PID's requested speed alongside the
-  actual one. When the firmware throttles for pressure or discharge protection,
-  the two diverge and you can see it happen.
-
-### 🧊 Refrigerant Circuit Diagnostics
-
-- **Suction Superheat** and **Discharge Superheat** — the earliest warning you
-  get for a refrigerant charge that is drifting, an expansion valve that is not
-  controlling well, or liquid making its way back to the compressor. Both are
-  temperature *differences* in kelvin and carry no `device_class`, so Home
-  Assistant will not mistake them for absolute temperatures.
-- **EEV Position** — the electronic expansion valve's step position. Read it
-  next to the superheat figures: a valve pinned at an end stop has run out of
-  room to regulate, which the superheat alone would not tell you.
-- **Season Mode** — whether the unit is set to `Heating` or `Cooling`. This is
-  the firmware's own mode flag (HR 1), set on the PGDX panel and until now only
-  visible there. Read-only over Modbus. Note that it reads `Cooling` all summer
-  whatever the unit is doing, so it is not a substitute for **Operating State**.
-- **Pump Speed Feedback** — the circulation pump's own speed reading, published
-  raw. It reads 0 whenever the pump is off, so it works as a running indicator;
-  a commanded speed with no feedback is what a stalled pump looks like, and the
-  controller does not flag that by itself. The unit is unresolved: it read 280
-  against a commanded 90.0%, so it is not a percentage of the command.
-
-- **DHW Water Limit** — ST21, the absolute water temperature the unit holds itself
-  to while heating hot water. This is what actually ends a DHW cycle: once the tank
-  is warm enough that reaching it would need water hotter than this, the compressor
-  stops and retries after its minimum-off time. If your hot-water cycles keep
-  restarting a few minutes apart without reaching setpoint, compare this figure with
-  **Water Outlet** — they will be equal at every stop.
-
-### 🔢 Energy Totals From the Unit
-
-- **Unit Thermal Energy Total** and **Unit Electrical Energy Total** — the heat
-  pump's own cumulative energy counters, so COP no longer has to be reconstructed
-  from a power register with 0.1 kW resolution. Confirmed against independently
-  integrated energy over a 77-minute DHW cycle: 3.73 against 3.59.
-- They update roughly every 20 minutes of compressor runtime rather than
-  continuously, so do not read them over a short window. Being 16-bit at 0.1 kWh
-  they also wrap every 6553.5 kWh, which makes the absolute readings useless as
-  lifetime totals but leaves them perfectly good as an incremental source.
-- **AC Enable Status** — the unit's own confirmation that the AC master enable
-  landed, useful if you drive that switch from an automation.
-
-### 🔌 Robust Modbus Communication
+### Robust Modbus communication
 
 - **Persistent TCP connection** — one connection is opened and reused for all polling and writes, instead of reconnecting every update cycle. This is significantly gentler on RTU-to-TCP gateways, most of which allow only a few simultaneous client connections (the popular USR-W610 allows 3). Automatic reconnect on connection loss.
 - Reads and writes are serialized, so a parameter write never collides with a polling cycle
+- Read errors are logged once per function code when they start, not on every poll, so an outage does not flood the log
 
-### 🩺 Diagnostics
+### Diagnostics
 
 - Standard Home Assistant **Download diagnostics** support (device page → Download diagnostics)
 - Includes connection status, coordinator health and a full register dump with current values
 - Host/IP details are automatically redacted — safe to attach to GitHub issues
-
-### 🚀 Automation-Ready
-
-All entities are standard Home Assistant entities, perfect for:
-
-- Creating automations based on operating state
-- Monitoring energy consumption
-- Alerting on alarms or unusual conditions
-- Optimizing heating/cooling schedules
 
 ## Prerequisites
 
@@ -198,6 +118,8 @@ Once configured, use the module's IP address when setting up the Home Assistant 
 
 ## Installation
 
+This is a **custom repository** — it is not in the HACS default store, so it has to be added by URL first.
+
 ### Via HACS (Recommended)
 
 1. **Add Custom Repository:**
@@ -256,9 +178,53 @@ You can add multiple TEC heat pumps by configuring each with a unique name:
 
 ## Available Entities
 
+### Sensors (42)
+
+#### From the unit's registers (28)
+
+Water inlet and outlet, ambient, suction and discharge temperature, DHW tank, low and high pressure, water flow, compressor frequency (actual and requested), compressor power, compressor current (motor and AC), pump PWM, pump speed feedback, EEV position, suction and discharge superheat, room temperature, operating hours, operating state, the two unit energy counters, two unidentified counters, plus **Season Mode** and **DHW Water Limit**.
+
+Several of these deserve explanation:
+
+**Suction Superheat / Discharge Superheat** — the earliest warning you get for a refrigerant charge that is drifting, an expansion valve that is not controlling well, or liquid making its way back to the compressor. Both are temperature *differences* in kelvin and carry no `device_class`, so Home Assistant will not mistake them for absolute temperatures and convert 3.5 K to −269.65 °C.
+
+> With the compressor **off** these readings are meaningless — suction superheat drifts well below zero in standby. Always gate templates and automations on `compressor_frequency > 0`.
+
+**EEV Position** — the electronic expansion valve's step position. Read it next to the superheat figures: a valve pinned at an end stop has run out of room to regulate, which the superheat alone would not tell you.
+
+**Season Mode** — whether the unit is set to `Heating` or `Cooling`. This is the firmware's own mode flag (HR 1), set on the PGDX panel and until now only visible there. Read-only over Modbus.
+
+> It is called Season Mode, not Operating Mode, on purpose: it reads `Cooling` all summer regardless of what the unit is doing at that moment. For the current activity use **Operating State**.
+
+**DHW Water Limit** — ST21, the absolute water temperature the unit holds itself to while heating hot water. This is what actually ends a DHW cycle: once the tank is warm enough that reaching it would need water hotter than this, the compressor stops and retries after its minimum-off time. If your hot-water cycles keep restarting a few minutes apart without reaching setpoint, compare this figure with **Water Outlet** — they will be equal at every stop.
+
+**Unit Thermal Energy Total / Unit Electrical Energy Total** — the heat pump's own cumulative energy counters, so COP no longer has to be reconstructed from a power register with 0.1 kW resolution. Confirmed against independently integrated energy over a 77-minute DHW cycle: 3.73 against 3.59. Two caveats: they update roughly every 20 minutes of compressor runtime rather than continuously, so do not read them over a short window; and being 16-bit at 0.1 kWh they wrap every 6553.5 kWh, which makes the absolute readings useless as lifetime totals but leaves them perfectly good as an incremental source.
+
+**Compressor Frequency Requested** — the PID's requested speed alongside the actual one. When the firmware throttles for pressure or discharge protection, the two diverge and you can see it happen.
+
+**Compressor Current (Motor / AC)** — finer-grained than the power register (0.1 A ≈ 23 W against 0.1 kW), so they show load changes that the power reading rounds away.
+
+**Pump Speed Feedback** — the circulation pump's own speed reading, published raw. It reads 0 whenever the pump is off, so it works as a running indicator; a commanded speed with no feedback is what a stalled pump looks like, and the controller does not flag that by itself. The unit is unresolved: it read 280 against a commanded 90.0%, so it is not a percentage of the command.
+
+**Unit Counter IR16 / IR27** — exposed for investigation, not for use. IR 16 held a constant value through an hour and a half of full load, so it is not a counter — more likely a fixed code. IR 27 runs a sawtooth from 0 to roughly 34–41 and back over 4–7 minutes, but only during the last 20 minutes of a DHW cycle when discharge superheat is high, and the superheat drops on every reset. It reads as a periodic valve or oil-return action. If you recognise either, please open an issue.
+
+#### Status sensors from discrete inputs (8)
+
+Primary pump, secondary pump, AC heater, crankcase heater, DHW circulation pump, DHW electric heater, gas boiler, and **AC Enable Status** — the unit's own confirmation that the AC master enable landed, useful if you drive that switch from an automation.
+
+#### Calculated performance sensors (6)
+
+- **Thermal Power (kW)** — live heat delivered to the water, calculated from water flow × temperature difference (positive = heating, negative = cooling)
+- **COP** — live coefficient of performance (thermal power ÷ compressor electrical power). Only shown while the compressor draws at least 0.5 kW: the power register has 0.1 kW resolution, so below that the reading would be dominated by rounding noise. `Unknown` otherwise, so your statistics stay clean.
+- **COP (1h Average)** — energy-weighted COP over the past hour (total heat ÷ total electrical energy). The averaging cancels out register rounding noise, so this one is also meaningful during low-load operation, such as summer cooling at minimum compressor speed. Shown once at least 0.05 kWh was consumed within the hour; resets on restart.
+- **COP (Today)** — energy-weighted COP since local midnight, built on persistent energy counters, so it survives restarts.
+- **Thermal Energy / Compressor Energy (kWh)** — cumulative counters, persisted across restarts. Thermal counts |heat| moved to or from the water, so heating and cooling both add. Usable in the Home Assistant Energy dashboard.
+
+> Electrical power is the compressor inverter reading. The backup electric heater sits on a separate circuit and is **not** included in any COP figure.
+
 ### Number Entities (30) — Writable Settings
 
-Adjustable directly from the Home Assistant UI (with documented min/max limits enforced) or via `number.set_value`:
+Adjustable directly from the Home Assistant UI (with the manual's min/max limits enforced) or via `number.set_value`:
 
 - Temperature setpoints (cooling, heating, DHW) and hysteresis
 - Heating/cooling curve compensation factors
@@ -269,38 +235,15 @@ Adjustable directly from the Home Assistant UI (with documented min/max limits e
 
 **Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
 
-### Sensors (26) — Read-Only
-
-- Water inlet/outlet temperatures
-- Outdoor ambient temperature
-- Suction/discharge temperatures
-- DHW tank temperature
-- Low/high pressure side
-- Water flow
-- Compressor frequency & operating hours
-- Compressor power consumption and motor/AC currents
-- Suction and discharge superheat, EEV step position
-- Pump PWM commanded and pump speed feedback
-- Unit operating state and heating/cooling mode
-
 ### Alarm Binary Sensors (8)
 
-Real `binary_sensor` entities with `device_class: problem` — they show up red in
-the UI when active and work directly with notification automations and blueprints:
+Real `binary_sensor` entities with `device_class: problem` — they show up red in the UI and work directly with notification automations and blueprints:
 
 - Low/high pressure alarm, low/high outlet temperature alarm, low flow alarm
 - LP/HP alarm count exceeded (24h protection counters)
-- **Inverter Alarm** (latched IGBT failure bit — observed and verified live on an
-  RS07V/LF during a real inverter trip)
+- **Inverter Alarm** (latched IGBT failure bit — observed and verified live on an RS07V/LF during a real inverter trip)
 
-The outlet-temperature alarms carry a two-minute delay: they briefly trip when
-the three-way valve switches back from the DHW circuit and the sensor still
-sees hot tank water. That transient is not a fault, so it no longer raises an
-alarm — a genuine fault persists and still comes through.
-
-### Status Sensors — Discrete Inputs (7)
-
-- Primary/secondary pump, heaters, DHW circulation pump, gas boiler
+The outlet-temperature alarms carry a two-minute delay: they briefly trip when the three-way valve switches back from the DHW circuit and the sensor still sees hot tank water. That transient is not a fault, so it no longer raises an alarm — a genuine fault persists and still comes through.
 
 ### Switches (3)
 
@@ -317,25 +260,40 @@ alarm — a genuine fault persists and still comes through.
 **Recommended:** use the number entities directly, e.g. in an automation:
 
 ```yaml
-service: number.set_value
+action: number.set_value
 target:
   entity_id: number.tec_heat_pump_cooling_setpoint
 data:
   value: 21.3
 ```
 
-Values are shown and set in display units; the integration converts to raw register values automatically (21.3°C ↔ raw 213 with scale 0.1).
+Values are shown and set in display units; the integration converts to raw register values automatically (21.3 °C ↔ raw 213 with scale 0.1).
 
 **Deprecated (still works):** the `tec_heatpump_modbus.write_register` service:
 
 ```yaml
-service: tec_heatpump_modbus.write_register
+action: tec_heatpump_modbus.write_register
 data:
   sensor: st01  # Register unique ID
   value: 21.3   # Value (automatically scaled)
 ```
 
-## ⚠️ Upgrading from 1.x to 2.0
+### Failed writes are loud
+
+Since **2026.08.04**, a write that does not land raises an error instead of only logging one:
+
+- Switching AC, DHW or SG on or off raises `HomeAssistantError` if the Modbus write fails, so the automation stops and you get a trace. Previously a failed write was indistinguishable from a successful one.
+- `write_register` raises a validation error when the register name does not exist or is not writable, instead of silently doing nothing.
+
+If an automation of yours starts going red after upgrading, it was already failing — it just was not telling you.
+
+## Versioning
+
+Releases use **CalVer**: `yyyy.MM.NN`, where `NN` counts releases within that month (`2026.08.01`, `2026.08.02`, …). Pre-releases add `-beta.N` and are published as GitHub pre-releases, so HACS only offers them if you opt into betas.
+
+Versions up to and including `v2.3.0-beta.1` used semantic versioning. `2026.08.01` was the first CalVer release; the scheme will not change back, because going from `2026.08.x` to `3.0.0` would read as a downgrade to HACS.
+
+### ⚠️ Upgrading from 1.x to 2.0
 
 Writable settings moved from `sensor.*` to `number.*` entities (**breaking change**):
 
@@ -352,6 +310,8 @@ Writable settings moved from `sensor.*` to `number.*` entities (**breaking chang
 - Support for all Modbus function codes (1-4)
 - Automatic int16/uint16 conversion
 - Configurable scaling factors
+
+> **Note for contributors:** register reads span the lowest to the highest address in a single batch, so one outlying address widens the whole block. Modbus FC03/FC04 allow at most 125 registers per read, and the holding-register block currently spans 1..121. Any new holding register above address 125 needs chunking first, the way the bit reads already do.
 
 ### Based On
 
@@ -399,6 +359,8 @@ Contributions are welcome!
 - 💡 Suggest features via [GitHub Issues](https://github.com/stroeks3/tec_heatpump_modbus/issues)
 - 🔧 Submit pull requests with improvements
 
+When attaching diagnostics to an issue, use the device page's **Download diagnostics** button — host and IP details are redacted automatically.
+
 ## Credits
 
 - Based on official TEC Heat Pump documentation
@@ -411,9 +373,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Documentation:** GitHub Wiki (coming soon)
-- **Issues:** [GitHub Issues](https://github.com/stroeks3/tec_heatpump_modbus/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/stroeks3/tec_heatpump_modbus/discussions)
+Questions, bug reports and feature requests all go through [GitHub Issues](https://github.com/stroeks3/tec_heatpump_modbus/issues).
 
 ---
 

@@ -1,4 +1,5 @@
 {
   "name": "TEC Heat Pump Modbus",
-  "render_readme": true
+  "render_readme": true,
+  "homeassistant": "2025.10.0"
 }
