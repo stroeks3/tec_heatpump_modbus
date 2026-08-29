@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import BINARY_SENSORS
+from .const import BINARY_SENSORS, PUMP_FLOW_FAULT_THRESHOLD
 from . import TECHeatPumpCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,21 +64,40 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{config['unique_id']}"
         self._attr_device_info = coordinator.device_info
         self._delay_on = config.get("delay_on")
+        self._calculated = config.get("calculated", False)
         self._raw_on_since: float | None = None
+
+    def _raw_state(self) -> bool | None:
+        """Return the undelayed condition, before any delay_on is applied."""
+        if not self._calculated:
+            value = self.coordinator.data.get(self.entity_description.key)
+            return None if value is None else bool(value)
+
+        if self.entity_description.key == "pump_flow_fault":
+            commanded = self.coordinator.data.get("y3")
+            flow = self.coordinator.data.get("flow")
+            if commanded is None or flow is None:
+                return None
+            # Pump not asked to run: nothing to complain about.
+            if commanded <= 0:
+                return False
+            return flow < PUMP_FLOW_FAULT_THRESHOLD
+
+        return None
 
     @property
     def is_on(self) -> bool | None:
-        """Return True if the alarm bit is set.
+        """Return True if the alarm condition holds.
 
-        When the definition carries "delay_on", the bit must stay set for
-        that many seconds before it is reported as a problem. This filters
-        the short transient the outlet-temperature alarms produce when the
-        three-way valve switches back from the DHW circuit.
+        When the definition carries "delay_on", the condition must persist
+        for that many seconds before it is reported as a problem. This
+        filters the short transient the outlet-temperature alarms produce
+        when the three-way valve switches back from the DHW circuit, and
+        gives the pump time to build flow after it starts.
         """
-        value = self.coordinator.data.get(self.entity_description.key)
-        if value is None:
+        raw = self._raw_state()
+        if raw is None:
             return None
-        raw = bool(value)
 
         if not self._delay_on:
             return raw
@@ -95,14 +114,18 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return device specific state attributes."""
-        attrs = {
-            "address": self._config["address"],
-            "device_id": self.coordinator.device_id,
-            "function": self._config["function"],
-        }
+        attrs: dict[str, Any] = {"device_id": self.coordinator.device_id}
+
+        if self._calculated:
+            attrs["derived_from"] = "pump_pwm + water_flow"
+            attrs["flow_threshold"] = PUMP_FLOW_FAULT_THRESHOLD
+            attrs["pump_pwm"] = self.coordinator.data.get("y3")
+            attrs["water_flow"] = self.coordinator.data.get("flow")
+        else:
+            attrs["address"] = self._config["address"]
+            attrs["function"] = self._config["function"]
+
         if self._delay_on:
             attrs["delay_on_seconds"] = self._delay_on
-            attrs["raw_bit_set"] = bool(
-                self.coordinator.data.get(self.entity_description.key)
-            )
+            attrs["condition_met"] = self._raw_state()
         return attrs

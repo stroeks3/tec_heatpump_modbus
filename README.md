@@ -4,7 +4,7 @@
 
 > **Disclaimer:** This is an unofficial integration created by the community, not by TEC (The Energy Combination). TEC does not provide support for it. This is a community project - use it entirely at your own risk. Developed and tested with the TEC RS07VLF 7kW (R32) heat pump.
 
-Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **84 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
+Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **85 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
 
 ## Features
 
@@ -12,7 +12,7 @@ Home Assistant integration for TEC (The Energy Combination) heat pumps over Modb
 |---|---|---|
 | Sensors | **42** | 28 from the unit's registers, 8 status sensors, 6 calculated |
 | Numbers | **30** | Writable settings, with min/max limits enforced |
-| Binary sensors | **8** | Alarms, `device_class: problem` |
+| Binary sensors | **9** | Alarms plus a derived pump-flow watchdog, `device_class: problem` |
 | Switches | **3** | AC, DHW, SG Function |
 | Buttons | **1** | Manual refresh |
 
@@ -184,7 +184,7 @@ You can add multiple TEC heat pumps by configuring each with a unique name:
 
 #### From the unit's registers (28)
 
-Water inlet and outlet, ambient, suction and discharge temperature, DHW tank, low and high pressure, water flow, compressor frequency (actual and requested), compressor power, compressor current (motor and AC), pump PWM, pump speed feedback, EEV position, suction and discharge superheat, room temperature, operating hours, operating state, the two unit energy counters, two unidentified counters, plus **Season Mode** and **DHW Water Limit**.
+Water inlet and outlet, ambient, suction and discharge temperature, DHW tank, low and high pressure, water flow, compressor frequency (actual and requested), compressor power, compressor current (motor and AC), pump PWM, fan speed, EEV position, suction and discharge superheat, room temperature, operating hours, operating state, the two unit energy counters, two unidentified counters, plus **Season Mode** and **DHW Water Limit**.
 
 Several of these deserve explanation:
 
@@ -206,7 +206,9 @@ Several of these deserve explanation:
 
 **Compressor Current (Motor / AC)** — finer-grained than the power register (0.1 A ≈ 23 W against 0.1 kW), so they show load changes that the power reading rounds away.
 
-**Pump Speed Feedback** — the circulation pump's own speed reading, published raw. It reads 0 whenever the pump is off, so it works as a running indicator; a commanded speed with no feedback is what a stalled pump looks like, and the controller does not flag that by itself. The unit is unresolved: it read 280 against a commanded 90.0%, so it is not a percentage of the command.
+**Fan Speed** — the EC fan's drive voltage. It reads 0 whenever the fan is off, and during operation it runs between CN02 (minimum fan speed) and CN01 (maximum), so it shows you the fan modulating with load.
+
+> Released in 2026.08.04 as *Pump Speed Feedback*, which was wrong. IR 15 tracks the compressor, not the pump: it stays 0 while the pump ramps up, rises seconds before the compressor starts, and returns to 0 the instant the compressor stops, a full minute before the pump does. See [Upgrading to 2026.08.05](#upgrading-to-20260805).
 
 **Unit Counter IR16 / IR27** — exposed for investigation, not for use. IR 16 held a constant value through an hour and a half of full load, so it is not a counter — more likely a fixed code. IR 27 runs a sawtooth from 0 to roughly 34–41 and back over 4–7 minutes, but only during the last 20 minutes of a DHW cycle when discharge superheat is high, and the superheat drops on every reset. It reads as a periodic valve or oil-return action. If you recognise either, please open an issue.
 
@@ -237,7 +239,7 @@ Adjustable directly from the Home Assistant UI or via `number.set_value`. Limits
 
 **Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
 
-### Alarm Binary Sensors (8)
+### Alarm Binary Sensors (9)
 
 Real `binary_sensor` entities with `device_class: problem` — they show up red in the UI and work directly with notification automations and blueprints:
 
@@ -246,6 +248,12 @@ Real `binary_sensor` entities with `device_class: problem` — they show up red 
 - **Inverter Alarm** (latched IGBT failure bit — observed and verified live on an RS07V/LF during a real inverter trip)
 
 The outlet-temperature alarms carry a two-minute delay: they briefly trip when the three-way valve switches back from the DHW circuit and the sensor still sees hot tank water. That transient is not a fault, so it no longer raises an alarm — a genuine fault persists and still comes through.
+
+**Pump Flow Fault** is the one derived entity here: the pump is being commanded but no water is moving. It turns on when pump PWM is above zero while water flow stays under 0.3 m³/h for a full minute.
+
+Why it exists, when the unit already has its own low-flow alarm: below roughly 23% PWM the pump can stop moving water while the controller still believes it is running. With the compressor on, no circulation means nothing carrying heat away from the inverter, which is the documented contributor to one RS07V/LF's IGBT trip. The unit's AL17 uses its own threshold (EV07 × 0.8 for 5 seconds) and clears the moment flow creeps back over the line, so a pump that is barely moving water never latches anything.
+
+The 0.3 m³/h threshold sits well under the 0.6–0.7 measured at the 23% floor and well over the 0.0 seen with the pump off, so it separates "barely turning" from "not moving water at all". The one-minute hold covers the ramp after the pump starts.
 
 ### Switches (3)
 
@@ -294,6 +302,18 @@ If an automation of yours starts going red after upgrading, it was already faili
 Releases use **CalVer**: `yyyy.MM.NN`, where `NN` counts releases within that month (`2026.08.01`, `2026.08.02`, …). Pre-releases add `-beta.N` and are published as GitHub pre-releases, so HACS only offers them if you opt into betas.
 
 Versions up to and including `v2.3.0-beta.1` used semantic versioning. `2026.08.01` was the first CalVer release; the scheme will not change back, because going from `2026.08.x` to `3.0.0` would read as a downgrade to HACS.
+
+### ⚠️ Upgrading to 2026.08.05
+
+**`Pump Speed Feedback` is renamed to `Fan Speed`** (breaking, but it only existed in 2026.08.04, for one day).
+
+IR 15 was published as the circulation pump's speed feedback. It is not: it is the EC fan's drive voltage. Watching a full cycle rather than only standby made that plain. The pump ramped from 23% to 90% while the register stayed at 0; it rose to 280 seven seconds *before* the compressor started, and dropped back to 0 the instant the compressor stopped, a full minute before the pump did. The value range settles it: 280–325 against CN02 (minimum fan speed) of exactly 2.80 V and CN01 (maximum) of 3.70 V. So it is volts at scale 0.01, and it is the fan.
+
+- The old entity is orphaned. Delete `sensor.<device>_pump_speed_feedback` from the entity registry; the new `sensor.<device>_fan_speed` appears alongside it.
+- History under the old entity is not migrated, and would have been mislabelled anyway.
+- The README claim that it "works as a running indicator" for a stalled pump was wrong in the worst direction: in standby the pump genuinely circulates (0.6–0.7 m³/h) while IR 15 reads 0. Anything built on it would have fired constantly.
+
+**New: `binary_sensor.<device>_pump_flow_fault`**, which does what IR 15 was wrongly credited with, using water flow against commanded pump PWM. See [Alarm Binary Sensors](#alarm-binary-sensors-9).
 
 ### ⚠️ Upgrading from 1.x to 2.0
 

@@ -115,17 +115,20 @@ SENSORS = [
     # deliberately carries no device_class: with SensorDeviceClass.TEMPERATURE, Home
     # Assistant would treat 3.5 K as an absolute temperature and convert it to -269.65 C
     # on installations configured in Celsius.
-    # IR 15, the pump's own speed feedback against the commanded PWM on IR 14.
-    # Published raw, without a unit: it read 280 against a commanded 90.0%, so it is
-    # plainly not a percentage of the command, and a full DHW cycle could not
-    # calibrate it because both values stayed flat throughout. Most likely tenths of
-    # an RPM. It does reliably read 0 when the pump is off, so it works as a running
-    # indicator - which is what SAFETY.md's stalled-pump concern actually needs.
-    # Exposed so the pair can be compared: SAFETY.md records that below EV06 = 23%
-    # the pump can stall without the controller noticing, and a commanded speed with
-    # no feedback is exactly what that looks like. Not yet characterised during a
-    # running cycle - it reads 0.0% in standby - so no derived alarm is built on it.
-    { "unique_id": "pump_feedback", "translation_key": "pump_feedback", "name": "Pump Speed Feedback", "address": 15, "data_type": "int16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    # IR 15 = EC fan speed in volts. Shipped in 2026.08.04 as "Pump Speed Feedback",
+    # which was wrong; corrected here after watching a full cycle instead of only
+    # standby.
+    #
+    # It does not track the pump. On 2026-08-29 the pump ramped 23 -> 90% at 04:29:37
+    # while IR 15 stayed 0; it rose to 280 at 04:31:38, seven seconds before the
+    # compressor started, and dropped back to 0 at 05:36:43 the instant the compressor
+    # stopped - a full minute before the pump stopped at 05:37:37. That is the fan's
+    # duty cycle, not the pump's.
+    #
+    # The scale follows from the range. Values ran 280..325 and the floor is exactly
+    # CN02 (HR 8, minimum fan speed) = 2.8 V, with CN01 (HR 7, maximum) = 3.7 V well
+    # above the peak. So it is volts at scale 0.01, and 0 whenever the fan is off.
+    { "unique_id": "fan_speed", "translation_key": "fan_speed", "name": "Fan Speed", "address": 15, "data_type": "int16", "unit": "V", "device_class": SensorDeviceClass.VOLTAGE, "function": 4, "scale": 0.01, "state_class": SensorStateClass.MEASUREMENT },
     # HR 100 = ST21, the absolute water-temperature ceiling the unit holds itself to
     # during DHW. It is what actually ends a DHW cycle: once the tank is warm enough
     # that reaching it would need water above this figure, the compressor stops and
@@ -216,7 +219,26 @@ BINARY_SENSORS = [
     # during a real IGBT trip (stays 1 until the alarm is reset on the
     # panel or the unit is power-cycled).
     { "unique_id": "al_inv", "translation_key": "al_inv", "name": "Inverter Alarm", "address": 83, "data_type": "bool", "function": 2, "device_class": BinarySensorDeviceClass.PROBLEM },
+    # Derived, not a register: the pump is being commanded but no water is moving.
+    #
+    # The unit's own AL17 covers this at its own threshold (EV07 x 0.8 for 5 s), but
+    # EV07 defaults low and the alarm clears the moment flow creeps back over the
+    # line, so a pump that is barely moving water never latches anything. This one
+    # watches the pair directly and holds for a minute before it complains.
+    #
+    # Why it matters: below roughly 23% PWM the pump can stop moving water while the
+    # controller still believes it is running. With the compressor on, no circulation
+    # means no chiller-side flow to carry heat away from the inverter. That is the
+    # documented contributor to this unit's 2026-05-13 IGBT trip.
+    #
+    # Threshold: 0.3 m³/h sits well under the 0.6-0.7 measured at the 23% floor and
+    # well over the 0.0 seen with the pump off, so it separates "barely turning" from
+    # "not moving water at all" without guessing at intermediate values.
+    { "unique_id": "pump_flow_fault", "translation_key": "pump_flow_fault", "name": "Pump Flow Fault", "device_class": BinarySensorDeviceClass.PROBLEM, "calculated": True, "delay_on": 60 },
 ]
+
+# Below this flow, with the pump commanded on, water is not circulating (m³/h).
+PUMP_FLOW_FAULT_THRESHOLD = 0.3
 
 REGISTER_TYPE_COIL = "coil"
 REGISTER_TYPE_HOLDING = "holding"
