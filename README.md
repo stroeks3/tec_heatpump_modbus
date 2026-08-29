@@ -11,7 +11,7 @@ Home Assistant integration for TEC (The Energy Combination) heat pumps over Modb
 | Platform | Count | What it covers |
 |---|---|---|
 | Sensors | **42** | 28 from the unit's registers, 8 status sensors, 6 calculated |
-| Numbers | **30** | Writable settings, with the manual's min/max limits enforced |
+| Numbers | **30** | Writable settings, with min/max limits enforced |
 | Binary sensors | **8** | Alarms, `device_class: problem` |
 | Switches | **3** | AC, DHW, SG Function |
 | Buttons | **1** | Manual refresh |
@@ -226,7 +226,7 @@ Primary pump, secondary pump, AC heater, crankcase heater, DHW circulation pump,
 
 ### Number Entities (30) — Writable Settings
 
-Adjustable directly from the Home Assistant UI (with the manual's min/max limits enforced) or via `number.set_value`:
+Adjustable directly from the Home Assistant UI or via `number.set_value`. Limits follow the manual, tightened where a wider range makes no physical sense (a pump *minimum* speed of 100% for instance), and following the unit where the manual contradicts itself: CM17 and CM18 both list a factory default outside their own stated min/max, and this unit shipped with CM17 at 95 against a stated maximum of 80.
 
 - Temperature setpoints (cooling, heating, DHW) and hysteresis
 - Heating/cooling curve compensation factors
