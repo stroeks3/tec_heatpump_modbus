@@ -139,8 +139,16 @@ SENSORS = [
     # those stops.
     { "unique_id": "st21", "translation_key": "st21", "name": "DHW Water Limit", "address": 100, "data_type": "int16", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "function": 3, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "eev_step", "translation_key": "eev_step", "name": "EEV Position", "address": 11, "data_type": "int16", "unit": "steps", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
-    { "unique_id": "suction_superheat", "translation_key": "suction_superheat", "name": "Suction Superheat", "address": 12, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
-    { "unique_id": "discharge_superheat", "translation_key": "discharge_superheat", "name": "Discharge Superheat", "address": 28, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
+    # Both superheat registers carry "requires_compressor": with the compressor
+    # stopped they keep reporting, but the number means nothing - suction superheat
+    # drifts to around -4.8 K in standby. Reporting it anyway invites exactly the
+    # wrong conclusion: on 2026-08-30 an unfiltered read of one DHW cycle gave 45%
+    # of samples below 2.0 K with a minimum of -5.6 K, where the same cycle filtered
+    # on a running compressor gave 6% and +0.2 K. A factor seven, in the alarming
+    # direction. So the sensor reports unknown instead, and every graph, statistic
+    # and automation gets it right without anyone having to know this.
+    { "unique_id": "suction_superheat", "translation_key": "suction_superheat", "name": "Suction Superheat", "address": 12, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT, "requires_compressor": True },
+    { "unique_id": "discharge_superheat", "translation_key": "discharge_superheat", "name": "Discharge Superheat", "address": 28, "data_type": "int16", "unit": "K", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT, "requires_compressor": True },
     { "unique_id": "freq_requested", "translation_key": "freq_requested", "name": "Compressor Frequency Requested", "address": 29, "data_type": "int16", "unit": "Hz", "device_class": SensorDeviceClass.FREQUENCY, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
 
     # Calculated sensors — derived in the coordinator from the readings above,
@@ -235,10 +243,31 @@ BINARY_SENSORS = [
     # well over the 0.0 seen with the pump off, so it separates "barely turning" from
     # "not moving water at all" without guessing at intermediate values.
     { "unique_id": "pump_flow_fault", "translation_key": "pump_flow_fault", "name": "Pump Flow Fault", "device_class": BinarySensorDeviceClass.PROBLEM, "calculated": True, "delay_on": 60 },
+    # Derived: suction superheat has stayed too low for too long while running.
+    #
+    # Superheat near zero means the refrigerant leaving the evaporator is not fully
+    # evaporated, so liquid is reaching the compressor. That dilutes the oil and in
+    # the extreme causes slugging. Brief dips are ordinary valve regulation; a
+    # sustained low reading is not.
+    #
+    # The threshold pair is empirical, and the obvious settings do not work. Two
+    # minutes under 2.0 K was reached only after 3 minutes under 1.5 K never fired
+    # at all, despite a 273-second dip to -0.2 K: the value oscillates and keeps
+    # bouncing briefly back over 1.5, so "continuously below 1.5" is never true.
+    # At 2 min / 2.0 K that dip does fire and an 81-second one does not, which is
+    # the sensitivity we want.
+    #
+    # No compressor condition is needed here: the superheat sensor itself reports
+    # unknown when the compressor is stopped (see "requires_compressor" above), and
+    # unknown is not below the threshold.
+    { "unique_id": "low_suction_superheat", "translation_key": "low_suction_superheat", "name": "Low Suction Superheat", "device_class": BinarySensorDeviceClass.PROBLEM, "calculated": True, "delay_on": 120 },
 ]
 
 # Below this flow, with the pump commanded on, water is not circulating (m³/h).
 PUMP_FLOW_FAULT_THRESHOLD = 0.3
+
+# Suction superheat below this (K) risks liquid returning to the compressor.
+LOW_SUCTION_SUPERHEAT_THRESHOLD = 2.0
 
 REGISTER_TYPE_COIL = "coil"
 REGISTER_TYPE_HOLDING = "holding"

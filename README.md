@@ -4,7 +4,7 @@
 
 > **Disclaimer:** This is an unofficial integration created by the community, not by TEC (The Energy Combination). TEC does not provide support for it. This is a community project - use it entirely at your own risk. Developed and tested with the TEC RS07VLF 7kW (R32) heat pump.
 
-Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **85 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
+Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **86 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
 
 ## Features
 
@@ -12,7 +12,7 @@ Home Assistant integration for TEC (The Energy Combination) heat pumps over Modb
 |---|---|---|
 | Sensors | **42** | 28 from the unit's registers, 8 status sensors, 6 calculated |
 | Numbers | **30** | Writable settings, with min/max limits enforced |
-| Binary sensors | **9** | Alarms plus a derived pump-flow watchdog, `device_class: problem` |
+| Binary sensors | **10** | Alarms plus two derived watchdogs, `device_class: problem` |
 | Switches | **3** | AC, DHW, SG Function |
 | Buttons | **1** | Manual refresh |
 
@@ -190,7 +190,9 @@ Several of these deserve explanation:
 
 **Suction Superheat / Discharge Superheat** — the earliest warning you get for a refrigerant charge that is drifting, an expansion valve that is not controlling well, or liquid making its way back to the compressor. Both are temperature *differences* in kelvin and carry no `device_class`, so Home Assistant will not mistake them for absolute temperatures and convert 3.5 K to −269.65 °C.
 
-> With the compressor **off** these readings are meaningless — suction superheat drifts well below zero in standby. Always gate templates and automations on `compressor_frequency > 0`.
+> With the compressor **off** these readings are meaningless, so **both sensors report `unknown` in standby** rather than a misleading number. You do not need to filter on compressor frequency yourself.
+>
+> Why this matters: read unfiltered, one DHW cycle showed 45% of samples below 2.0 K with a minimum of −5.6 K. The same cycle, counting only samples with the compressor running, gave 6% and +0.2 K. A factor seven, in the alarming direction.
 
 **EEV Position** — the electronic expansion valve's step position. Read it next to the superheat figures: a valve pinned at an end stop has run out of room to regulate, which the superheat alone would not tell you.
 
@@ -239,7 +241,7 @@ Adjustable directly from the Home Assistant UI or via `number.set_value`. Limits
 
 **Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
 
-### Alarm Binary Sensors (9)
+### Alarm Binary Sensors (10)
 
 Real `binary_sensor` entities with `device_class: problem` — they show up red in the UI and work directly with notification automations and blueprints:
 
@@ -254,6 +256,12 @@ The outlet-temperature alarms carry a two-minute delay: they briefly trip when t
 Why it exists, when the unit already has its own low-flow alarm: below roughly 23% PWM the pump can stop moving water while the controller still believes it is running. With the compressor on, no circulation means nothing carrying heat away from the inverter, which is the documented contributor to one RS07V/LF's IGBT trip. The unit's AL17 uses its own threshold (EV07 × 0.8 for 5 seconds) and clears the moment flow creeps back over the line, so a pump that is barely moving water never latches anything.
 
 The 0.3 m³/h threshold sits well under the 0.6–0.7 measured at the 23% floor and well over the 0.0 seen with the pump off, so it separates "barely turning" from "not moving water at all". The one-minute hold covers the ramp after the pump starts.
+
+**Low Suction Superheat** turns on when suction superheat stays under 2.0 K for two minutes while the compressor runs. Superheat near zero means refrigerant is leaving the evaporator without fully evaporating, so liquid reaches the compressor, dilutes the oil, and in the extreme causes slugging.
+
+Brief dips are ordinary valve regulation and stay quiet. The threshold pair is empirical and the obvious settings do not work: 3 minutes under 1.5 K never fired at all, despite a 273-second dip to −0.2 K in the same cycle, because the reading oscillates and keeps bouncing briefly back over 1.5 K. At 2 minutes under 2.0 K that dip fires and an 81-second one does not.
+
+No compressor condition is needed in your automations: the superheat sensor itself reports `unknown` when the compressor is stopped, and `unknown` is never below the threshold.
 
 ### Switches (3)
 
