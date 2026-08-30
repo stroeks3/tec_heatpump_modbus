@@ -127,16 +127,22 @@ def test_bouncing_over_the_threshold_resets_the_timer(frozen_clock) -> None:
     coordinator = _coordinator(50, 1.2)
     sensor = TECHeatPumpBinarySensor(coordinator, ALARM)
 
+    # 100 s below the threshold: not long enough yet.
     frozen_clock["t"] += 100
     assert sensor.is_on is False
 
+    # One excursion above it discards those 100 s entirely.
     coordinator.data["suction_superheat"] = 2.4
     assert sensor.is_on is False
 
+    # Back under. This read restarts the timer from zero, so the earlier 100 s
+    # plus a little more is NOT enough - it needs a fresh 120 s.
     coordinator.data["suction_superheat"] = 1.2
-    frozen_clock["t"] += 100
     assert sensor.is_on is False
     frozen_clock["t"] += 25
+    assert sensor.is_on is False
+
+    frozen_clock["t"] += 96
     assert sensor.is_on is True
 
 
