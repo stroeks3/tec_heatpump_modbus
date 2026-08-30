@@ -14,7 +14,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import BINARY_SENSORS, PUMP_FLOW_FAULT_THRESHOLD
+from .const import (
+    BINARY_SENSORS,
+    LOW_SUCTION_SUPERHEAT_THRESHOLD,
+    PUMP_FLOW_FAULT_THRESHOLD,
+)
 from . import TECHeatPumpCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -83,6 +87,16 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
                 return False
             return flow < PUMP_FLOW_FAULT_THRESHOLD
 
+        if self.entity_description.key == "low_suction_superheat":
+            freq = self.coordinator.data.get("compressor")
+            superheat = self.coordinator.data.get("suction_superheat")
+            if freq is None or superheat is None:
+                return None
+            # Compressor stopped: the reading is meaningless, not a fault.
+            if not freq:
+                return False
+            return superheat < LOW_SUCTION_SUPERHEAT_THRESHOLD
+
         return None
 
     @property
@@ -116,11 +130,16 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
         """Return device specific state attributes."""
         attrs: dict[str, Any] = {"device_id": self.coordinator.device_id}
 
-        if self._calculated:
+        if self.entity_description.key == "pump_flow_fault":
             attrs["derived_from"] = "pump_pwm + water_flow"
             attrs["flow_threshold"] = PUMP_FLOW_FAULT_THRESHOLD
             attrs["pump_pwm"] = self.coordinator.data.get("y3")
             attrs["water_flow"] = self.coordinator.data.get("flow")
+        elif self.entity_description.key == "low_suction_superheat":
+            attrs["derived_from"] = "suction_superheat + compressor_frequency"
+            attrs["superheat_threshold"] = LOW_SUCTION_SUPERHEAT_THRESHOLD
+            attrs["suction_superheat"] = self.coordinator.data.get("suction_superheat")
+            attrs["compressor_frequency"] = self.coordinator.data.get("compressor")
         else:
             attrs["address"] = self._config["address"]
             attrs["function"] = self._config["function"]

@@ -67,11 +67,18 @@ class TECHeatPumpSensor(CoordinatorEntity[TECHeatPumpCoordinator], SensorEntity)
     @property
     def native_value(self) -> str | int | float | None:
         """Return the state of the sensor."""
+        if self._sensor_config.get("requires_compressor"):
+            freq = self.coordinator.data.get("compressor")
+            if not freq:
+                # Compressor stopped (or frequency unavailable): the reading is
+                # not meaningful. Report unknown rather than a misleading number.
+                return None
+
         value = self.coordinator.data.get(self.entity_description.key)
-        
+
         if "value_map" in self._sensor_config and value is not None:
             return self._sensor_config["value_map"].get(value, value)
-            
+
         return value
 
     @property

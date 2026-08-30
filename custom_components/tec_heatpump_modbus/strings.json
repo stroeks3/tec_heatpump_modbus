@@ -282,6 +282,9 @@
       },
       "pump_flow_fault": {
         "name": "Pump Flow Fault"
+      },
+      "low_suction_superheat": {
+        "name": "Low Suction Superheat"
       }
     },
     "switch": {
