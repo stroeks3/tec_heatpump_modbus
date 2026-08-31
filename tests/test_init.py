@@ -116,14 +116,19 @@ async def test_write_register_service_invalid_sensor(
 async def test_read_errors_logged_only_once(
     hass: HomeAssistant, mock_modbus_client, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A sustained read failure logs a warning once, not on every poll."""
+    """A sustained read failure logs a warning once, not on every poll.
+
+    Uses the INPUT registers deliberately. Holding registers sit on the slow
+    cadence since 2026.08.07, so three refreshes inside a minute would only
+    read them once and this test would pass for the wrong reason.
+    """
     entry = await _setup_entry(hass)
     coordinator = entry.runtime_data
 
     error_result = MagicMock()
     error_result.isError.return_value = True
-    mock_modbus_client.read_holding_registers.side_effect = None
-    mock_modbus_client.read_holding_registers.return_value = error_result
+    mock_modbus_client.read_input_registers.side_effect = None
+    mock_modbus_client.read_input_registers.return_value = error_result
 
     caplog.clear()
     with caplog.at_level(logging.WARNING):
