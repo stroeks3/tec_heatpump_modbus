@@ -4,6 +4,7 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.number import NumberDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import EntityCategory
 
 DOMAIN = "tec_heatpump_modbus"
 
@@ -261,13 +262,69 @@ BINARY_SENSORS = [
     # unknown when the compressor is stopped (see "requires_compressor" above), and
     # unknown is not below the threshold.
     { "unique_id": "low_suction_superheat", "translation_key": "low_suction_superheat", "name": "Low Suction Superheat", "device_class": BinarySensorDeviceClass.PROBLEM, "calculated": True, "delay_on": 120 },
+    # Derived, and NOT a problem: the DHW cycle is being held back by the water
+    # temperature limit rather than by the tank setpoint.
+    #
+    # This is the single most confusing thing this unit does. A DHW cycle does not
+    # end when the tank reaches ST09; it ends when the outlet reaches ST21 (58.0 C
+    # here). Above that the compressor stops, waits out its minimum-off time,
+    # retries, hits the same ceiling, and the electric heater fills the pauses. To
+    # an owner it looks like unexplained short cycling well below setpoint.
+    #
+    # Measured 2026-08-30: three stops in one boost, all at an outlet of 58.0-58.1
+    # against ST21 = 58.0, with the tank at 53.5 and a setpoint of 58. Watching
+    # this sensor next to DHW Tank explains the whole pattern at a glance.
+    #
+    # Deliberately no device_class: this is normal, designed behaviour, not a fault.
+    # The 0.5 K margin catches the approach rather than only the exact hit.
+    { "unique_id": "dhw_water_limited", "translation_key": "dhw_water_limited", "name": "DHW Limited By Water Temp", "device_class": None, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
 ]
+
+# How close the outlet must get to ST21 before the cycle counts as limited (K).
+DHW_WATER_LIMIT_MARGIN = 0.5
 
 # Below this flow, with the pump commanded on, water is not circulating (m³/h).
 PUMP_FLOW_FAULT_THRESHOLD = 0.3
 
 # Suction superheat below this (K) risks liquid returning to the compressor.
 LOW_SUCTION_SUPERHEAT_THRESHOLD = 2.0
+
+# --- Entity categories -----------------------------------------------------
+# Without these, all 87 entities land in one undifferentiated list on the
+# device page. Home Assistant renders CONFIG and DIAGNOSTIC in their own
+# cards, which leaves the primary card showing what the machine is actually
+# doing: temperatures, pressures, flow, state, power and COP.
+#
+# Every writable parameter is configuration by definition, so NUMBERS is
+# stamped wholesale rather than listed.
+_DIAGNOSTIC_SENSORS = frozenset({
+    # Refrigerant circuit and drive internals: for troubleshooting, not for
+    # telling whether the house is warm.
+    "eev_step", "suction_superheat", "discharge_superheat",
+    "comp_current_motor", "comp_current_ac", "freq_requested", "fan_speed",
+    "y3", "operating_hours", "st21",
+    # Reads 0.0 on this unit: there is no room sensor wired.
+    "room_temperature",
+    # Status bits from the discrete inputs.
+    "secondary_pump", "primary_pump", "no4", "d07", "no1", "no8", "di31", "no6",
+    # Unidentified, exposed for investigation only.
+    "unit_counter_ir16", "unit_counter_ir27",
+})
+
+# Exposed so someone can help identify them, but off by default: they carry no
+# usable meaning yet and would otherwise sit on every dashboard as noise.
+_DISABLED_BY_DEFAULT = frozenset({"unit_counter_ir16", "unit_counter_ir27"})
+
+for _entity in SENSORS:
+    if _entity["unique_id"] in _DIAGNOSTIC_SENSORS:
+        _entity.setdefault("entity_category", EntityCategory.DIAGNOSTIC)
+    if _entity["unique_id"] in _DISABLED_BY_DEFAULT:
+        _entity.setdefault("enabled_default", False)
+
+for _entity in NUMBERS:
+    _entity.setdefault("entity_category", EntityCategory.CONFIG)
+
+del _entity
 
 REGISTER_TYPE_COIL = "coil"
 REGISTER_TYPE_HOLDING = "holding"

@@ -50,4 +50,7 @@ class TECHeatPumpButton(CoordinatorEntity[TECHeatPumpCoordinator], ButtonEntity)
     async def async_press(self) -> None:
         """Handle the button press."""
         _LOGGER.info("Refresh button pressed, requesting data refresh.")
+        # An explicit refresh should read everything, including the holding
+        # registers that normally sit on the slow cadence.
+        self.coordinator.force_slow_read()
         await self.coordinator.async_request_refresh()

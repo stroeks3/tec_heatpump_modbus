@@ -73,6 +73,7 @@ class TECHeatPumpNumber(CoordinatorEntity[TECHeatPumpCoordinator], NumberEntity)
             native_min_value=round(number_config["min_value"] * scale, 3),
             native_max_value=round(number_config["max_value"] * scale, 3),
             native_step=scale,
+            entity_category=number_config.get("entity_category"),
         )
 
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{number_config['unique_id']}"

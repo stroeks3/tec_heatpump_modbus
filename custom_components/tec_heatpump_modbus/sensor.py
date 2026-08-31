@@ -59,6 +59,8 @@ class TECHeatPumpSensor(CoordinatorEntity[TECHeatPumpCoordinator], SensorEntity)
             device_class=sensor_config.get("device_class"),
             native_unit_of_measurement=sensor_config.get("unit"),
             state_class=sensor_config.get("state_class"),
+            entity_category=sensor_config.get("entity_category"),
+            entity_registry_enabled_default=sensor_config.get("enabled_default", True),
         )
         
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{sensor_config['unique_id']}"

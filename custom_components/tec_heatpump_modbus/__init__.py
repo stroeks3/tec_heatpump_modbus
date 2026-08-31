@@ -5,6 +5,7 @@ import logging
 import time
 from datetime import timedelta
 from collections import defaultdict, deque
+from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
@@ -42,6 +43,12 @@ PLATFORMS: list[Platform] = [
 # Bit-based Modbus functions (coils / discrete inputs) are read in chunks:
 # some RTU-to-TCP gateways and devices are unreliable with large bit reads.
 MAX_BITS_PER_READ = 32
+
+# Modbus function codes read on the slow cadence instead of every poll.
+# Function 3 is the holding-register block: writable parameters plus two
+# read-only settings, all of which only change when something writes them.
+SLOW_FUNCTIONS = frozenset({3})
+SLOW_READ_INTERVAL_S = 60.0
 
 
 type TECHeatPumpConfigEntry = ConfigEntry[TECHeatPumpCoordinator]
@@ -146,6 +153,16 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         # Function codes currently failing to read; used to log a Modbus
         # read error only once per outage instead of on every poll.
         self._logged_read_errors: set[int] = set()
+        # Holding registers are configuration, not measurements: they change
+        # only when something writes them. Re-reading all 121 of them every
+        # few seconds is almost pure waste on a 9600-baud RS485 line, where
+        # that one read costs roughly 310 ms against 80 ms for the whole
+        # input-register block. So they are polled on a slow cadence, their
+        # values cached between reads, and refreshed immediately after any
+        # write so the UI never shows a stale setpoint.
+        self._slow_cache: dict[str, Any] = {}
+        self._slow_last_read: float | None = None
+        self._slow_read_due = True
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -231,7 +248,27 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                     key = (self.device_id, function_code)
                     entity_groups[key].append(entity_config)
 
+                # Decide once per poll whether the slow group is due, so every
+                # slow function code in this cycle is treated consistently.
+                now_m = time.monotonic()
+                slow_due = (
+                    self._slow_read_due
+                    or self._slow_last_read is None
+                    or (now_m - self._slow_last_read) >= SLOW_READ_INTERVAL_S
+                )
+                slow_read_ok = True
+
                 for (device_id, function_code), entities in entity_groups.items():
+                    if function_code in SLOW_FUNCTIONS and not slow_due:
+                        # Serve from the previous read. Missing keys stay absent
+                        # rather than being written as None, so a genuine read
+                        # failure still surfaces as unknown.
+                        for entity in entities:
+                            uid = entity["unique_id"]
+                            if uid in self._slow_cache:
+                                data[uid] = self._slow_cache[uid]
+                        continue
+
                     modbus_func_map = {
                         1: client.read_coils,
                         2: client.read_discrete_inputs,
@@ -285,6 +322,14 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                         if function_code not in self._logged_read_errors:
                             self._logged_read_errors.add(function_code)
                             _LOGGER.warning(f"Modbus error reading function {function_code}: {result}")
+                        if function_code in SLOW_FUNCTIONS:
+                            # Do not restart the slow timer on a failed read, and
+                            # keep serving the last good values in the meantime.
+                            slow_read_ok = False
+                            for entity in entities:
+                                uid = entity["unique_id"]
+                                if uid in self._slow_cache:
+                                    data[uid] = self._slow_cache[uid]
                         continue
                     self._logged_read_errors.discard(function_code)
 
@@ -303,6 +348,12 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                             if "scale" in entity:
                                 value *= entity["scale"]
                         data[entity["unique_id"]] = value
+                        if function_code in SLOW_FUNCTIONS:
+                            self._slow_cache[entity["unique_id"]] = value
+
+                if slow_due and slow_read_ok:
+                    self._slow_last_read = now_m
+                    self._slow_read_due = False
 
             except UpdateFailed:
                 await self._async_drop_client()
@@ -423,6 +474,14 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             self._last_store_save = now
             self._store.async_delay_save(lambda: dict(self._energy), 1)
 
+    def force_slow_read(self) -> None:
+        """Make the next poll re-read the slow (holding-register) group.
+
+        Called after any write and by the Refresh Data button, so a changed
+        setpoint shows up at once instead of on the next slow cadence.
+        """
+        self._slow_read_due = True
+
     async def api_write_register(self, address: int, value: int, device_id: int) -> None:
         """Write a single holding register."""
         async with self._modbus_lock:
@@ -437,6 +496,9 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             if result.isError():
                 _LOGGER.error("Failed to write register %s: %s", address, result)
                 raise UpdateFailed("Failed to write register")
+        # Holding registers are on the slow cadence, so without this the UI
+        # would keep showing the old setpoint for up to a minute after a write.
+        self.force_slow_read()
 
     async def write_coil(self, address: int, value: bool, device_id: int) -> None:
         """Write a single coil."""
