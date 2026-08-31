@@ -16,9 +16,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     BINARY_SENSORS,
+    DHW_WATER_LIMIT_MARGIN,
     LOW_SUCTION_SUPERHEAT_THRESHOLD,
     PUMP_FLOW_FAULT_THRESHOLD,
 )
+
+# Raw value of UNIT_STATE_MAPPING's "DHW" entry, as read from IR 20.
+DHW_STATE = 9
 from . import TECHeatPumpCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,6 +67,8 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
             translation_key=config.get("translation_key"),
             name=config.get("name"),
             device_class=config.get("device_class"),
+            entity_category=config.get("entity_category"),
+            entity_registry_enabled_default=config.get("enabled_default", True),
         )
 
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{config['unique_id']}"
@@ -96,6 +102,17 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
             if not freq:
                 return False
             return superheat < LOW_SUCTION_SUPERHEAT_THRESHOLD
+
+        if self.entity_description.key == "dhw_water_limited":
+            state = self.coordinator.data.get("operational_state")
+            outlet = self.coordinator.data.get("b2")
+            limit = self.coordinator.data.get("st21")
+            if state is None or outlet is None or limit is None:
+                return None
+            # Only meaningful while heating hot water.
+            if state != DHW_STATE:
+                return False
+            return outlet >= (limit - DHW_WATER_LIMIT_MARGIN)
 
         return None
 
@@ -140,6 +157,11 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
             attrs["superheat_threshold"] = LOW_SUCTION_SUPERHEAT_THRESHOLD
             attrs["suction_superheat"] = self.coordinator.data.get("suction_superheat")
             attrs["compressor_frequency"] = self.coordinator.data.get("compressor")
+        elif self.entity_description.key == "dhw_water_limited":
+            attrs["derived_from"] = "water_outlet + dhw_water_limit + operating_state"
+            attrs["margin"] = DHW_WATER_LIMIT_MARGIN
+            attrs["water_outlet"] = self.coordinator.data.get("b2")
+            attrs["dhw_water_limit"] = self.coordinator.data.get("st21")
         else:
             attrs["address"] = self._config["address"]
             attrs["function"] = self._config["function"]

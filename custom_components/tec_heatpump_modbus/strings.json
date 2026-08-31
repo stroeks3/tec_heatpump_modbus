@@ -285,6 +285,9 @@
       },
       "low_suction_superheat": {
         "name": "Low Suction Superheat"
+      },
+      "dhw_water_limited": {
+        "name": "DHW Limited By Water Temp"
       }
     },
     "switch": {
