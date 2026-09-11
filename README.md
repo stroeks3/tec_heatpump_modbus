@@ -4,15 +4,15 @@
 
 > **Disclaimer:** This is an unofficial integration created by the community, not by TEC (The Energy Combination). TEC does not provide support for it. This is a community project - use it entirely at your own risk. Developed and tested with the TEC RS07VLF 7kW (R32) heat pump.
 
-Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **86 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
+Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **96 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
 
 ## Features
 
 | Platform | Count | What it covers |
 |---|---|---|
-| Sensors | **42** | 28 from the unit's registers, 8 status sensors, 6 calculated |
+| Sensors | **51** | 28 from the unit's registers, 8 status sensors, 15 calculated |
 | Numbers | **30** | Writable settings, with min/max limits enforced |
-| Binary sensors | **10** | Alarms plus two derived watchdogs, `device_class: problem` |
+| Binary sensors | **11** | Alarms plus derived watchdogs, `device_class: problem` |
 | Switches | **3** | AC, DHW, SG Function |
 | Buttons | **1** | Manual refresh |
 
@@ -227,6 +227,31 @@ Primary pump, secondary pump, AC heater, crankcase heater, DHW circulation pump,
 - **Thermal Energy / Compressor Energy (kWh)** — cumulative counters, persisted across restarts. Thermal counts |heat| moved to or from the water, so heating and cooling both add. Usable in the Home Assistant Energy dashboard.
 
 > Electrical power is the compressor inverter reading. The backup electric heater sits on a separate circuit and is **not** included in any COP figure.
+
+#### Last cycle summary (8) and compression ratio
+
+Judging this machine used to mean pulling history and recomputing the same figures by hand every time. The coordinator already sees them go past, so it keeps them.
+
+When the compressor stops, eight sensors freeze the run that just finished and hold it until the next one ends:
+
+| Sensor | |
+|---|---|
+| **Last Cycle Duration** | minutes the compressor ran |
+| **Last Cycle Mean Suction Superheat** | averaged over running samples only |
+| **Last Cycle Low Superheat Time** | percentage of the run below 2.0 K |
+| **Last Cycle Min Suction Superheat** | the worst moment |
+| **Last Cycle Peak Discharge** | |
+| **Last Cycle Peak High Pressure** | |
+| **Last Cycle Tank Rise** | how far the tank actually came up |
+| **Last Cycle COP** | heat moved over electricity used, that cycle |
+
+Trend **Mean Suction Superheat** across cycles and you get a far better alarm than any instantaneous threshold: it tells you the machine is *deteriorating* rather than that it briefly dipped, which it does in the tail of every normal cycle.
+
+Two design notes. Superheat is averaged over running samples only, the same gate the sensor itself applies. And runs shorter than five minutes are skipped: against the ST21 ceiling the firmware produces one- and two-minute retries that are all tail, and summarising those would report a far worse machine than the one that actually ran.
+
+The summary is persisted, so a restart or an update does not cost you a cycle.
+
+**Compression Ratio** is discharge pressure over suction pressure. It is what actually sets the discharge temperature, so it explains the peaks the other sensors only show you after the fact.
 
 ### Number Entities (30) — Writable Settings
 
