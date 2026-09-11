@@ -334,7 +334,9 @@ If an automation of yours starts going red after upgrading, it was already faili
 
 Releases use **CalVer**: `yyyy.MM.NN`, where `NN` counts releases within that month (`2026.08.01`, `2026.08.02`, …) and resets each month. Pre-releases add `-beta.N` and are published as GitHub pre-releases, so HACS only offers them if you opt into betas.
 
-`manifest.json` carries the **exact** tag, betas included. Home Assistant's integration page reads the manifest while HACS reads the tag, so anything else makes those two disagree: a beta install would show a bare version number on the device page that does not exist as a release.
+`manifest.json` always carries the **bare** version, betas included, because **Home Assistant does not allow anything else**: hassfest rejects a pre-release suffix outright with `'2026.09.01-beta.2' is not a valid version`.
+
+That has a visible consequence worth knowing about. Home Assistant's integration page reads the manifest, while HACS reads the git tag. So while you run a beta the device page shows the bare version (`2026.09.01`) and HACS shows the tag (`2026.09.01-beta.1`). They are the same install. To tell which code you are actually running, read HACS, or count the entities.
 
 Versions up to and including `v2.3.0-beta.1` used semantic versioning. `2026.08.01` was the first CalVer release; the scheme will not change back, because going from `2026.08.x` to `3.0.0` would read as a downgrade to HACS.
 
