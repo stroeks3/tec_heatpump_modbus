@@ -29,6 +29,7 @@ from .const import (
     SENSORS,
     SWITCHES,
     REGISTER_TYPE_COIL,
+    LOW_SUCTION_SUPERHEAT_THRESHOLD,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,6 +50,11 @@ MAX_BITS_PER_READ = 32
 # read-only settings, all of which only change when something writes them.
 SLOW_FUNCTIONS = frozenset({3})
 SLOW_READ_INTERVAL_S = 60.0
+
+# A compressor run shorter than this is not summarised. Against the ST21
+# ceiling the firmware produces 1-2 minute retries that are all tail and
+# would drag every average down without describing a real cycle.
+MIN_CYCLE_SECONDS = 300.0
 
 
 type TECHeatPumpConfigEntry = ConfigEntry[TECHeatPumpCoordinator]
@@ -163,6 +169,14 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         self._slow_cache: dict[str, Any] = {}
         self._slow_last_read: float | None = None
         self._slow_read_due = True
+        # Running accumulator for the current compressor cycle, and the frozen
+        # summary of the last completed one. Every diagnosis of this machine so
+        # far has meant pulling history and recomputing these by hand; the
+        # coordinator already sees the numbers go past, so it may as well keep
+        # them. Persisted alongside the energy counters so a restart does not
+        # discard a cycle.
+        self._cycle: dict[str, Any] | None = None
+        self._last_cycle: dict[str, Any] = {}
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -216,14 +230,15 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             pass
 
     async def _async_setup(self) -> None:
-        """Load the persisted energy counters before the first refresh."""
+        """Load the persisted energy counters and last cycle before the first refresh."""
         stored = await self._store.async_load()
         if stored:
+            self._last_cycle = stored.pop("last_cycle", None) or {}
             self._energy.update(stored)
 
     async def async_close(self) -> None:
         """Close the Modbus connection (called on unload)."""
-        await self._store.async_save(dict(self._energy))
+        await self._store.async_save(self._storage_payload())
         async with self._modbus_lock:
             await self._async_drop_client()
             self._client = None
@@ -467,12 +482,113 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                 cop_daily = round(ratio, 2)
         data["cop_daily"] = cop_daily
 
+        # Discharge over suction pressure: what actually sets discharge
+        # temperature. Guarded against a zero or missing suction reading.
+        hp = data.get("b7")
+        lp = data.get("b6")
+        data["compression_ratio"] = (
+            round(hp / lp, 2) if hp is not None and lp else None
+        )
+
+        self._track_cycle(data, dt_s)
+
         # Persist periodically so the counters also survive a crash or
         # power loss (a plain debounce would be postponed by every poll
         # and only ever flush on clean shutdown).
         if now - self._last_store_save >= 300:
             self._last_store_save = now
-            self._store.async_delay_save(lambda: dict(self._energy), 1)
+            self._store.async_delay_save(self._storage_payload, 1)
+
+    def _storage_payload(self) -> dict:
+        """What gets written to HA storage."""
+        return {**self._energy, "last_cycle": dict(self._last_cycle)}
+
+    def _track_cycle(self, data: dict, dt_s: float) -> None:
+        """Accumulate per-cycle statistics, and freeze them when it ends.
+
+        A "cycle" is one uninterrupted run of the compressor. While it runs,
+        the readings that matter for judging the machine are summed here;
+        when it stops, they are turned into the Last Cycle sensors.
+
+        Suction superheat is only counted while running, which is the same
+        gate the sensor itself applies: with the compressor stopped the
+        register keeps reporting but the value means nothing.
+        """
+        freq = data.get("compressor")
+        running = bool(freq)
+
+        if running:
+            if self._cycle is None:
+                self._cycle = {
+                    "seconds": 0.0,
+                    "sh_sum": 0.0,
+                    "sh_n": 0,
+                    "sh_low_n": 0,
+                    "sh_min": None,
+                    "peak_discharge": None,
+                    "peak_hp": None,
+                    "tank_start": data.get("b4"),
+                    "thermal_kj": 0.0,
+                    "elec_kj": 0.0,
+                }
+            c = self._cycle
+            c["seconds"] += dt_s
+
+            sh = data.get("suction_superheat")
+            if sh is not None:
+                c["sh_sum"] += sh
+                c["sh_n"] += 1
+                if sh < LOW_SUCTION_SUPERHEAT_THRESHOLD:
+                    c["sh_low_n"] += 1
+                if c["sh_min"] is None or sh < c["sh_min"]:
+                    c["sh_min"] = sh
+
+            for key, src in (("peak_discharge", "t3"), ("peak_hp", "b7")):
+                v = data.get(src)
+                if v is not None and (c[key] is None or v > c[key]):
+                    c[key] = v
+
+            thermal = data.get("thermal_power")
+            if thermal is not None:
+                c["thermal_kj"] += abs(thermal) * dt_s
+            elec = data.get("compressor_power")
+            if elec is not None:
+                c["elec_kj"] += elec * dt_s
+
+            if c["tank_start"] is None:
+                c["tank_start"] = data.get("b4")
+
+        elif self._cycle is not None:
+            # Compressor just stopped: freeze the summary.
+            c = self._cycle
+            self._cycle = None
+            # Ignore blips too short to mean anything (anti-short-cycle
+            # retries produce 1-2 minute runs that would otherwise swamp
+            # the averages with tail-only data).
+            if c["seconds"] >= MIN_CYCLE_SECONDS and c["sh_n"]:
+                tank_end = data.get("b4")
+                rise = None
+                if tank_end is not None and c["tank_start"] is not None:
+                    rise = round(tank_end - c["tank_start"], 1)
+                cop = None
+                if c["elec_kj"] > 0:
+                    ratio = c["thermal_kj"] / c["elec_kj"]
+                    if 0 < ratio <= 15:
+                        cop = round(ratio, 2)
+                self._last_cycle = {
+                    "duration": round(c["seconds"] / 60.0, 1),
+                    "mean_superheat": round(c["sh_sum"] / c["sh_n"], 2),
+                    "low_superheat_pct": round(100.0 * c["sh_low_n"] / c["sh_n"], 1),
+                    "min_superheat": round(c["sh_min"], 1),
+                    "peak_discharge": c["peak_discharge"],
+                    "peak_high_pressure": c["peak_hp"],
+                    "tank_rise": rise,
+                    "cop": cop,
+                }
+                self._store.async_delay_save(self._storage_payload, 1)
+
+        for key, value in self._last_cycle.items():
+            data[f"cycle_{key}"] = value
 
     def force_slow_read(self) -> None:
         """Make the next poll re-read the slow (holding-register) group.

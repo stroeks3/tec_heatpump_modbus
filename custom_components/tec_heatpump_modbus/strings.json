@@ -253,6 +253,33 @@
       },
       "d07": {
         "name": "Crankcase Heater"
+      },
+      "compression_ratio": {
+        "name": "Compression Ratio"
+      },
+      "cycle_duration": {
+        "name": "Last Cycle Duration"
+      },
+      "cycle_mean_superheat": {
+        "name": "Last Cycle Mean Suction Superheat"
+      },
+      "cycle_low_superheat_pct": {
+        "name": "Last Cycle Low Superheat Time"
+      },
+      "cycle_min_superheat": {
+        "name": "Last Cycle Min Suction Superheat"
+      },
+      "cycle_peak_discharge": {
+        "name": "Last Cycle Peak Discharge"
+      },
+      "cycle_peak_high_pressure": {
+        "name": "Last Cycle Peak High Pressure"
+      },
+      "cycle_tank_rise": {
+        "name": "Last Cycle Tank Rise"
+      },
+      "cycle_cop": {
+        "name": "Last Cycle COP"
       }
     },
     "binary_sensor": {

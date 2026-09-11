@@ -166,6 +166,31 @@ SENSORS = [
     { "unique_id": "cop_1h", "translation_key": "cop_1h", "name": "COP (1h Average)", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
     # Energy-weighted COP since local midnight, from the persistent counters.
     { "unique_id": "cop_daily", "translation_key": "cop_daily", "name": "COP (Today)", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+
+    # Discharge pressure over suction pressure. It is what actually sets the
+    # discharge temperature, so it explains the peaks the other sensors only
+    # show you after the fact. Cheap to publish and otherwise a sum you end up
+    # doing in your head every time you read a cycle back.
+    { "unique_id": "compression_ratio", "translation_key": "compression_ratio", "name": "Compression Ratio", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+
+    # --- Last completed compressor cycle -----------------------------------
+    # Frozen when the compressor stops, held until the next cycle ends, and
+    # persisted across restarts. Judging this machine has always meant pulling
+    # history and recomputing exactly these figures by hand; the coordinator
+    # already sees them go past.
+    #
+    # Runs shorter than MIN_CYCLE_SECONDS are skipped: against the ST21 water
+    # ceiling the firmware produces 1-2 minute retries that are all tail, and
+    # summarising those would drag every average down without describing a
+    # real cycle.
+    { "unique_id": "cycle_duration", "translation_key": "cycle_duration", "name": "Last Cycle Duration", "unit": "min", "device_class": SensorDeviceClass.DURATION, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    { "unique_id": "cycle_mean_superheat", "translation_key": "cycle_mean_superheat", "name": "Last Cycle Mean Suction Superheat", "unit": "K", "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    { "unique_id": "cycle_low_superheat_pct", "translation_key": "cycle_low_superheat_pct", "name": "Last Cycle Low Superheat Time", "unit": "%", "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    { "unique_id": "cycle_min_superheat", "translation_key": "cycle_min_superheat", "name": "Last Cycle Min Suction Superheat", "unit": "K", "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    { "unique_id": "cycle_peak_discharge", "translation_key": "cycle_peak_discharge", "name": "Last Cycle Peak Discharge", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    { "unique_id": "cycle_peak_high_pressure", "translation_key": "cycle_peak_high_pressure", "name": "Last Cycle Peak High Pressure", "unit": "bar", "device_class": SensorDeviceClass.PRESSURE, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    { "unique_id": "cycle_tank_rise", "translation_key": "cycle_tank_rise", "name": "Last Cycle Tank Rise", "unit": "K", "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    { "unique_id": "cycle_cop", "translation_key": "cycle_cop", "name": "Last Cycle COP", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
     # Cumulative energy counters (persist across restarts). Thermal counts
     # |heat| delivered to the water (heating and cooling both add).
     { "unique_id": "thermal_energy", "translation_key": "thermal_energy", "name": "Thermal Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
