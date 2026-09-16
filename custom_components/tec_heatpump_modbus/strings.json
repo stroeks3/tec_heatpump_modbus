@@ -280,6 +280,18 @@
       },
       "cycle_cop": {
         "name": "Last Cycle COP"
+      },
+      "starts_today": {
+        "name": "Compressor Starts Today"
+      },
+      "runtime_today": {
+        "name": "Compressor Runtime Today"
+      },
+      "starts_yesterday": {
+        "name": "Compressor Starts Yesterday"
+      },
+      "runtime_yesterday": {
+        "name": "Compressor Runtime Yesterday"
       }
     },
     "binary_sensor": {

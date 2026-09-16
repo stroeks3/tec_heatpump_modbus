@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import timedelta
+from datetime import date, timedelta
 from collections import defaultdict, deque
 from typing import Any
 import voluptuous as vol
@@ -177,6 +177,22 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         # discard a cycle.
         self._cycle: dict[str, Any] | None = None
         self._last_cycle: dict[str, Any] = {}
+        # Compressor starts and runtime per calendar day. The first question
+        # asked of this machine was whether it runs nicely without a lot of
+        # start/stops, and answering it has meant pulling recorder history by
+        # hand every single time. Persisted with the rest, so a restart does
+        # not reset the day to zero.
+        self._daily: dict[str, Any] = {
+            "day": None,
+            "starts": 0,
+            "runtime_s": 0.0,
+            "starts_yesterday": None,
+            "runtime_yesterday": None,
+        }
+        # Compressor state at the previous poll, so a start can be detected as
+        # a transition. None means "not known yet" (first poll on a fresh
+        # install), where a running compressor must not be counted as a start.
+        self._was_running: bool | None = None
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -234,6 +250,12 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         stored = await self._store.async_load()
         if stored:
             self._last_cycle = stored.pop("last_cycle", None) or {}
+            daily = stored.pop("daily", None)
+            if daily:
+                self._daily.update(daily)
+            # Restoring this is what keeps an HA restart in the middle of a
+            # run from being counted as an extra compressor start.
+            self._was_running = stored.pop("was_running", None)
             self._energy.update(stored)
 
     async def async_close(self) -> None:
@@ -490,6 +512,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             round(hp / lp, 2) if hp is not None and lp else None
         )
 
+        self._track_daily(data, dt_s)
         self._track_cycle(data, dt_s)
 
         # Persist periodically so the counters also survive a crash or
@@ -501,7 +524,72 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
 
     def _storage_payload(self) -> dict:
         """What gets written to HA storage."""
-        return {**self._energy, "last_cycle": dict(self._last_cycle)}
+        return {
+            **self._energy,
+            "last_cycle": dict(self._last_cycle),
+            "daily": dict(self._daily),
+            "was_running": self._was_running,
+        }
+
+    def _track_daily(self, data: dict, dt_s: float) -> None:
+        """Count compressor starts and runtime since local midnight.
+
+        Deliberately different from _track_cycle: *every* start counts here,
+        including the one- and two-minute retries that the cycle summary
+        throws away. There they would poison the averages; here they are
+        precisely the symptom worth seeing, because a machine that restarts
+        six times to fill the tank is not running well even if each attempt
+        looks fine on its own.
+
+        Runtime uses the same capped dt_s as the energy counters, so an
+        outage or a restart cannot fabricate hours the compressor never ran.
+        """
+        d = self._daily
+        today = dt_util.now().date()
+        previous = date.fromisoformat(d["day"]) if d["day"] else None
+
+        if previous != today:
+            if previous is not None and previous == today - timedelta(days=1):
+                d["starts_yesterday"] = d["starts"]
+                d["runtime_yesterday"] = round(d["runtime_s"] / 60.0, 1)
+            else:
+                # A gap of more than one day: whatever we have is not
+                # yesterday, and labelling it so would be a lie.
+                d["starts_yesterday"] = None
+                d["runtime_yesterday"] = None
+            d["day"] = today.isoformat()
+            d["starts"] = 0
+            d["runtime_s"] = 0.0
+            self._store.async_delay_save(self._storage_payload, 1)
+
+        freq = data.get("compressor")
+        if freq is None:
+            # The compressor register did not read this poll. Unknown is not
+            # the same as stopped, and treating it as stopped would invent a
+            # stop/start pair out of a communication hiccup.
+            self._publish_daily(data)
+            return
+
+        running = bool(freq)
+        if running:
+            if self._was_running is False:
+                d["starts"] += 1
+                # Save immediately, so the counter and the running flag are
+                # written together: a crash after this point must not be able
+                # to replay the same start.
+                self._store.async_delay_save(self._storage_payload, 1)
+            d["runtime_s"] += dt_s
+        self._was_running = running
+
+        self._publish_daily(data)
+
+    def _publish_daily(self, data: dict) -> None:
+        """Copy the daily counters into the poll data."""
+        d = self._daily
+        data["starts_today"] = d["starts"]
+        data["runtime_today"] = round(d["runtime_s"] / 60.0, 1)
+        data["starts_yesterday"] = d["starts_yesterday"]
+        data["runtime_yesterday"] = d["runtime_yesterday"]
 
     def _track_cycle(self, data: dict, dt_s: float) -> None:
         """Accumulate per-cycle statistics, and freeze them when it ends.

@@ -4,7 +4,7 @@
 
 > **Disclaimer:** This is an unofficial integration created by the community, not by TEC (The Energy Combination). TEC does not provide support for it. This is a community project - use it entirely at your own risk. Developed and tested with the TEC RS07VLF 7kW (R32) heat pump.
 
-Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **96 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
+Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **100 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
 
 ## Features
 
@@ -22,6 +22,7 @@ Highlights, each described in full under [Available Entities](#available-entitie
 - **Performance sensors** — live thermal power and COP, hourly and daily energy-weighted COP, and the unit's own energy counters
 - **Season Mode and DHW Water Limit** — two firmware parameters that were previously only visible on the PGDX panel, and that explain a lot of otherwise puzzling behaviour
 - **Compressor diagnostics** — requested versus actual frequency, so you can watch the firmware throttle for pressure or discharge protection
+- **Compressor starts and runtime per day** — whether the machine runs nicely without a lot of start/stops, with yesterday alongside today for comparison
 
 ### Configuration
 
@@ -180,7 +181,7 @@ You can add multiple TEC heat pumps by configuring each with a unique name:
 
 ## Available Entities
 
-### Sensors (42)
+### Sensors (55)
 
 #### From the unit's registers (28)
 
@@ -227,6 +228,23 @@ Primary pump, secondary pump, AC heater, crankcase heater, DHW circulation pump,
 - **Thermal Energy / Compressor Energy (kWh)** — cumulative counters, persisted across restarts. Thermal counts |heat| moved to or from the water, so heating and cooling both add. Usable in the Home Assistant Energy dashboard.
 
 > Electrical power is the compressor inverter reading. The backup electric heater sits on a separate circuit and is **not** included in any COP figure.
+
+#### Compressor starts and runtime (4)
+
+The first thing anyone asks of a heat pump is whether it runs nicely without a lot of start/stops. Until now this integration could not tell you: answering it meant pulling recorder history and counting transitions by hand.
+
+| Sensor | |
+|---|---|
+| **Compressor Starts Today** | transitions from stopped to running since local midnight |
+| **Compressor Runtime Today** | minutes the compressor ran today |
+| **Compressor Starts Yesterday** | frozen at midnight |
+| **Compressor Runtime Yesterday** | frozen at midnight |
+
+Yesterday's totals are there because today's count says very little at nine in the morning. The comparison is what makes it readable.
+
+Note the deliberate difference from the cycle summary below: **every start counts here, including the short ones**. An anti-short-cycle retry is not a run worth averaging, but a tank filled in six attempts instead of one is exactly what this sensor exists to make visible.
+
+Three things it does not do. A poll where the compressor register fails to read is treated as unknown, not as a stop, so a communication hiccup cannot invent a start/stop pair. Runtime uses the same capped interval as the energy counters, so an outage cannot fabricate hours the compressor never ran. And the running state is persisted along with the counters, so restarting Home Assistant in the middle of a run is not counted as an extra start.
 
 #### Last cycle summary (8) and compression ratio
 
