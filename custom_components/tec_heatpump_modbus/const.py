@@ -173,6 +173,22 @@ SENSORS = [
     # doing in your head every time you read a cycle back.
     { "unique_id": "compression_ratio", "translation_key": "compression_ratio", "name": "Compression Ratio", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
 
+    # --- Compressor starts and runtime per day ------------------------------
+    # The headline health figures for any heat pump, and the ones this machine
+    # could never actually be asked for: judging it has always meant pulling
+    # recorder history and counting transitions by hand.
+    #
+    # Unlike the cycle summary below, short runs count. An anti-short-cycle
+    # retry is not a cycle worth averaging, but it is absolutely a start worth
+    # counting.
+    { "unique_id": "starts_today", "translation_key": "starts_today", "name": "Compressor Starts Today", "unit": None, "device_class": None, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
+    { "unique_id": "runtime_today", "translation_key": "runtime_today", "name": "Compressor Runtime Today", "unit": "min", "device_class": SensorDeviceClass.DURATION, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
+    # Yesterday's totals, frozen at local midnight. Today's count says little
+    # at nine in the morning; the comparison is what makes it readable, and
+    # the rollover has to be detected anyway.
+    { "unique_id": "starts_yesterday", "translation_key": "starts_yesterday", "name": "Compressor Starts Yesterday", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+    { "unique_id": "runtime_yesterday", "translation_key": "runtime_yesterday", "name": "Compressor Runtime Yesterday", "unit": "min", "device_class": SensorDeviceClass.DURATION, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+
     # --- Last completed compressor cycle -----------------------------------
     # Frozen when the compressor stops, held until the next cycle ends, and
     # persisted across restarts. Judging this machine has always meant pulling
