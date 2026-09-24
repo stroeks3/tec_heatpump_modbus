@@ -182,6 +182,30 @@
       "unit_counter_ir27": {
         "name": "Unit Counter IR27"
       },
+      "unknown_ir19": {
+        "name": "Unknown IR19 (PDF: Tar_Temp)"
+      },
+      "unknown_ir30": {
+        "name": "Unknown IR30 (PDF: IPM_Temp)"
+      },
+      "unknown_ir32": {
+        "name": "Unknown IR32 (PDF: Fan_Speed_1)"
+      },
+      "unknown_ir33": {
+        "name": "Unknown IR33 (PDF: Fan_Speed_2)"
+      },
+      "unknown_ir36": {
+        "name": "Unknown IR36 (PDF: COP_Total)"
+      },
+      "unknown_ir37": {
+        "name": "Unknown IR37 (PDF: COP_6_Min)"
+      },
+      "unknown_ir47": {
+        "name": "Unknown IR47 (PDF: RT_Temp dup)"
+      },
+      "unknown_ir48": {
+        "name": "Unknown IR48 (PDF: status bitfield)"
+      },
       "fan_speed": {
         "name": "Fan Speed"
       },

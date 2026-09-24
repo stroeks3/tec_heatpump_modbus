@@ -75,15 +75,27 @@ NUMBERS = [
     # Compressor frequency limits (writable, Function 3)
     { "unique_id": "cm14", "translation_key": "cm14", "name": "Heating Rated Freq", "address": 115, "data_type": "int16", "min_value": 30, "max_value": 90, "unit": "Hz", "device_class": NumberDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1 },
     { "unique_id": "cm15", "translation_key": "cm15", "name": "Heating Max Freq", "address": 116, "data_type": "int16", "min_value": 30, "max_value": 95, "unit": "Hz", "device_class": NumberDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1 },
+    # The supplier manual's own Min./Max. columns for CM17/CM18 are internally
+    # contradictory (CM17's default of 90 sits above its own claimed max of 80;
+    # CM18's default of 20 sits below its own claimed min of 30 - see
+    # REGISTERS.md, checked 2026-08-29). This unit shipped with CM17=95, which
+    # the controller accepted without complaint. Bounds here deliberately
+    # follow the device (30..95 / 20..60), not the manual's table.
     { "unique_id": "cm17", "translation_key": "cm17", "name": "DHW Max Freq", "address": 117, "data_type": "int16", "min_value": 30, "max_value": 95, "unit": "Hz", "device_class": NumberDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1 },
     { "unique_id": "cm18", "translation_key": "cm18", "name": "DHW Min Freq", "address": 118, "data_type": "int16", "min_value": 20, "max_value": 60, "unit": "Hz", "device_class": NumberDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1 },
+    # Factory floor (per manual) is 20 Hz; kept at the factory value rather than
+    # the empirically-tuned practical floor of 30 Hz (see SAFETY.md/memory.md) -
+    # deliberate choice, not an oversight.
     { "unique_id": "cm16", "translation_key": "cm16", "name": "Heating Min Freq", "address": 121, "data_type": "int16", "min_value": 20, "max_value": 60, "unit": "Hz", "device_class": NumberDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1 },
 
     # Indoor pump parameters (writable, Function 3)
     { "unique_id": "ev03", "translation_key": "ev03", "name": "Pump Target dT (Cooling)", "address": 18, "data_type": "int16", "min_value": 10, "max_value": 100, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
     { "unique_id": "ev04", "translation_key": "ev04", "name": "Pump Target dT (Heating)", "address": 19, "data_type": "int16", "min_value": 10, "max_value": 100, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
     { "unique_id": "ev05", "translation_key": "ev05", "name": "Pump Max Speed", "address": 20, "data_type": "int16", "min_value": 200, "max_value": 1000, "unit": "%", "device_class": None, "writable": True, "function": 3, "scale": 0.1 },
-    { "unique_id": "ev06", "translation_key": "ev06", "name": "Pump Min Speed", "address": 21, "data_type": "int16", "min_value": 150, "max_value": 500, "unit": "%", "device_class": None, "writable": True, "function": 3, "scale": 0.1 },
+    # Factory floor (per manual) is 0%; kept at the factory value rather than
+    # the empirically-tuned hard floor of 23% (see SAFETY.md/memory.md) -
+    # deliberate choice, not an oversight.
+    { "unique_id": "ev06", "translation_key": "ev06", "name": "Pump Min Speed", "address": 21, "data_type": "int16", "min_value": 0, "max_value": 500, "unit": "%", "device_class": None, "writable": True, "function": 3, "scale": 0.1 },
     { "unique_id": "ev07", "translation_key": "ev07", "name": "Pump Min Flow Alarm", "address": 22, "data_type": "int16", "min_value": 0, "max_value": 50, "unit": "m³/h", "device_class": None, "writable": True, "function": 3, "scale": 0.1 },
 ]
 
@@ -97,6 +109,11 @@ SENSORS = [
     { "unique_id": "b6", "translation_key": "b6", "name": "Low Pressure", "address": 6, "data_type": "int16", "unit": "bar", "device_class": SensorDeviceClass.PRESSURE, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "b7", "translation_key": "b7", "name": "High Pressure", "address": 7, "data_type": "int16", "unit": "bar", "device_class": SensorDeviceClass.PRESSURE, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "flow", "translation_key": "flow", "name": "Water Flow", "address": 8, "data_type": "int16", "unit": "m³/h", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
+    # A 2026 TEC Modbus address-list PDF claims IR9 is "Evap_Temp" (evaporating
+    # temperature), not room temperature. Tested 2026-09-22 with the compressor
+    # at 55 Hz full load during a forced DHW cycle: stayed 0 throughout, which a
+    # real evaporating temperature could not do. That PDF's register map does
+    # not match this unit — see the disproved entries below.
     { "unique_id": "room_temperature", "translation_key": "room_temperature", "name": "Room Temperature", "address": 9, "data_type": "int16", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "compressor", "translation_key": "compressor", "name": "Compressor Frequency", "address": 13, "data_type": "int16", "unit": "Hz", "device_class": SensorDeviceClass.FREQUENCY, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "y3", "translation_key": "y3", "name": "Pump PWM", "address": 14, "data_type": "int16", "unit": "%", "device_class": None, "function": 4, "scale": 0.1, "state_class": SensorStateClass.MEASUREMENT },
@@ -231,8 +248,48 @@ SENSORS = [
     # to roughly 34-41 and back over 4-7 minutes, but only during the last 20
     # minutes of a DHW cycle when discharge superheat is high, and the superheat
     # drops on every reset. Reads as a periodic valve or oil-return action.
+    #
+    # The 2026 TEC Modbus address-list PDF claims IR16 is "Version" (a fixed
+    # program-version code) and IR27 is "EEV2 opening". IR16 holding a constant
+    # value is at least consistent with a version stamp. IR27 is not: a valve
+    # position does not run a fast periodic sawtooth, so "EEV2 opening" is very
+    # likely wrong for this unit - the sawtooth behaviour documented above
+    # predates and contradicts that PDF.
     { "unique_id": "unit_counter_ir16", "translation_key": "unit_counter_ir16", "name": "Unit Counter IR16", "address": 16, "data_type": "uint16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
     { "unique_id": "unit_counter_ir27", "translation_key": "unit_counter_ir27", "name": "Unit Counter IR27", "address": 27, "data_type": "uint16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+
+    # Unconfirmed registers from the 2026 TEC Modbus address-list PDF. Each one
+    # was tested 2026-09-22 by forcing a DHW cycle (raised ST09 to trigger a
+    # run) and reading it both at compressor start and at 55 Hz full load; all
+    # stayed 0 throughout, which disproves the PDF's claim for that address on
+    # this unit (a live discharge temp, tank temp and compressor frequency
+    # confirmed the unit really was running hard during the second read). Kept
+    # here, disabled by default, only so the raw value stays visible in case a
+    # firmware update or a longer observation window ever explains one of them.
+    #   IR19 "Tar_Temp"            - PDF: current active setpoint. Read 0 while
+    #                                 the real active target (ST09) was 54.0 C.
+    #   IR30 "IPM_Temp"             - PDF: driver board temperature. Read 0 at
+    #                                 55 Hz, where a real driver-board sensor
+    #                                 should read well above ambient.
+    #   IR32/IR33 "Fan_Speed_1/2"   - PDF: outdoor fan RPM. Read 0 rpm at 55 Hz
+    #                                 full load, where the fan is certainly
+    #                                 spinning.
+    #   IR36/IR37 "COP_Total/6_Min" - PDF: the unit's own COP counters. Read
+    #                                 0.0 during an active, measurable DHW
+    #                                 cycle.
+    #   IR47 "RT_Temp" (2nd copy)   - PDF: duplicate of IR1. Read 0 while IR1
+    #                                 itself read 21.1 C at the same instant.
+    #   IR48 (status bitfield)     - PDF: bit0 Comp/bit1 Pump/bit2 Fan among
+    #                                 others. Read all-zero while the compressor,
+    #                                 pump and fan were all confirmed running.
+    { "unique_id": "unknown_ir19", "translation_key": "unknown_ir19", "name": "Unknown IR19 (PDF: Tar_Temp)", "address": 19, "data_type": "int16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "unknown_ir30", "translation_key": "unknown_ir30", "name": "Unknown IR30 (PDF: IPM_Temp)", "address": 30, "data_type": "int16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "unknown_ir32", "translation_key": "unknown_ir32", "name": "Unknown IR32 (PDF: Fan_Speed_1)", "address": 32, "data_type": "uint16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "unknown_ir33", "translation_key": "unknown_ir33", "name": "Unknown IR33 (PDF: Fan_Speed_2)", "address": 33, "data_type": "uint16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "unknown_ir36", "translation_key": "unknown_ir36", "name": "Unknown IR36 (PDF: COP_Total)", "address": 36, "data_type": "int16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "unknown_ir37", "translation_key": "unknown_ir37", "name": "Unknown IR37 (PDF: COP_6_Min)", "address": 37, "data_type": "int16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "unknown_ir47", "translation_key": "unknown_ir47", "name": "Unknown IR47 (PDF: RT_Temp dup)", "address": 47, "data_type": "int16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
+    { "unique_id": "unknown_ir48", "translation_key": "unknown_ir48", "name": "Unknown IR48 (PDF: status bitfield)", "address": 48, "data_type": "uint16", "device_class": None, "function": 4, "scale": 1, "state_class": SensorStateClass.MEASUREMENT },
 
     # Discrete Inputs (read-only) - Function 2
     { "unique_id": "secondary_pump", "translation_key": "secondary_pump", "name": "Secondary Pump", "address": 25, "data_type": "bool", "function": 2, "value_map": BINARY_STATE_MAPPING, "device_class": None, "state_class": None },
@@ -350,11 +407,21 @@ _DIAGNOSTIC_SENSORS = frozenset({
     "secondary_pump", "primary_pump", "no4", "d07", "no1", "no8", "di31", "no6",
     # Unidentified, exposed for investigation only.
     "unit_counter_ir16", "unit_counter_ir27",
+    # PDF-claimed registers disproved 2026-09-22 (read 0 under full compressor
+    # load where the claimed value could not genuinely be 0) - see the comment
+    # block above their definitions. Exposed only in case they ever start
+    # reading something.
+    "unknown_ir19", "unknown_ir30", "unknown_ir32", "unknown_ir33",
+    "unknown_ir36", "unknown_ir37", "unknown_ir47", "unknown_ir48",
 })
 
 # Exposed so someone can help identify them, but off by default: they carry no
 # usable meaning yet and would otherwise sit on every dashboard as noise.
-_DISABLED_BY_DEFAULT = frozenset({"unit_counter_ir16", "unit_counter_ir27"})
+_DISABLED_BY_DEFAULT = frozenset({
+    "unit_counter_ir16", "unit_counter_ir27",
+    "unknown_ir19", "unknown_ir30", "unknown_ir32", "unknown_ir33",
+    "unknown_ir36", "unknown_ir37", "unknown_ir47", "unknown_ir48",
+})
 
 for _entity in SENSORS:
     if _entity["unique_id"] in _DIAGNOSTIC_SENSORS:
