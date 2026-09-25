@@ -125,6 +125,75 @@
       },
       "ev07": {
         "name": "Pump Min Flow Alarm"
+      },
+      "cm11": {
+        "name": "Cooling Rated Freq"
+      },
+      "cm12": {
+        "name": "Cooling Max Freq"
+      },
+      "cm13": {
+        "name": "Cooling Min Freq"
+      },
+      "cn01": {
+        "name": "Fan Max Speed"
+      },
+      "cn02": {
+        "name": "Fan Min Speed"
+      },
+      "cn03": {
+        "name": "Fan Max Speed Limit"
+      },
+      "cn21": {
+        "name": "Fan Max RPM"
+      },
+      "cn22": {
+        "name": "Fan Min RPM"
+      },
+      "df02": {
+        "name": "Defrost Start Evap Temp"
+      },
+      "df03": {
+        "name": "Defrost Ext Setpoint"
+      },
+      "df04": {
+        "name": "Defrost Temp Diff"
+      },
+      "df05": {
+        "name": "Defrost Start Delay"
+      },
+      "df06": {
+        "name": "Defrost Min Interval"
+      },
+      "df09": {
+        "name": "Defrost End Temp"
+      },
+      "df10": {
+        "name": "Defrost Max Duration"
+      },
+      "df13": {
+        "name": "Defrost Fan Start Temp"
+      },
+      "df15": {
+        "name": "Defrost Heater Ext Setpoint"
+      },
+      "df16": {
+        "name": "Defrost Forced Interval"
+      },
+      "sf06": {
+        "name": "Anti-Freeze Ext Start Setpoint"
+      },
+      "sf08": {
+        "name": "Anti-Freeze Temp Setpoint"
+      },
+      "sf09": {
+        "name": "Anti-Freeze Temp Diff"
+      },
+      "st26": {
+        "name": "DHW Anti-Legionella Interval"
+      },
+      "ar04": {
+        "name": "Pump Flow Alarm Delay"
       }
     },
     "sensor": {

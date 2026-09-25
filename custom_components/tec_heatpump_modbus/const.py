@@ -97,6 +97,49 @@ NUMBERS = [
     # deliberate choice, not an oversight.
     { "unique_id": "ev06", "translation_key": "ev06", "name": "Pump Min Speed", "address": 21, "data_type": "int16", "min_value": 0, "max_value": 500, "unit": "%", "device_class": None, "writable": True, "function": 3, "scale": 0.1 },
     { "unique_id": "ev07", "translation_key": "ev07", "name": "Pump Min Flow Alarm", "address": 22, "data_type": "int16", "min_value": 0, "max_value": 50, "unit": "m³/h", "device_class": None, "writable": True, "function": 3, "scale": 0.1 },
+
+    # Cooling-mode compressor frequency limits (writable, Function 3).
+    # Addresses confirmed in REGISTERS.md; bounds from the supplier manual's
+    # factory table (internally consistent for this trio, unlike CM17/CM18).
+    { "unique_id": "cm11", "translation_key": "cm11", "name": "Cooling Rated Freq", "address": 113, "data_type": "int16", "min_value": 20, "max_value": 100, "unit": "Hz", "device_class": NumberDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1 },
+    { "unique_id": "cm12", "translation_key": "cm12", "name": "Cooling Max Freq", "address": 114, "data_type": "int16", "min_value": 20, "max_value": 100, "unit": "Hz", "device_class": NumberDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1 },
+    { "unique_id": "cm13", "translation_key": "cm13", "name": "Cooling Min Freq", "address": 122, "data_type": "int16", "min_value": 20, "max_value": 100, "unit": "Hz", "device_class": NumberDeviceClass.FREQUENCY, "writable": True, "function": 3, "scale": 1 },
+
+    # Outdoor fan control (writable, Function 3). CN02/CN03 already back the
+    # fan_speed sensor's scale derivation (see that sensor's comment); exposed
+    # here as their own entities for the first time.
+    { "unique_id": "cn01", "translation_key": "cn01", "name": "Fan Max Speed", "address": 7, "data_type": "int16", "min_value": 10, "max_value": 100, "unit": "V", "device_class": NumberDeviceClass.VOLTAGE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "cn02", "translation_key": "cn02", "name": "Fan Min Speed", "address": 8, "data_type": "int16", "min_value": 10, "max_value": 100, "unit": "V", "device_class": NumberDeviceClass.VOLTAGE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "cn03", "translation_key": "cn03", "name": "Fan Max Speed Limit", "address": 110, "data_type": "int16", "min_value": 100, "max_value": 1000, "unit": "V", "device_class": NumberDeviceClass.VOLTAGE, "writable": True, "function": 3, "scale": 0.01 },
+    { "unique_id": "cn21", "translation_key": "cn21", "name": "Fan Max RPM", "address": 125, "data_type": "int16", "min_value": 0, "max_value": 9999, "unit": "rpm", "device_class": None, "writable": True, "function": 3, "scale": 1 },
+    { "unique_id": "cn22", "translation_key": "cn22", "name": "Fan Min RPM", "address": 126, "data_type": "int16", "min_value": 0, "max_value": 9999, "unit": "rpm", "device_class": None, "writable": True, "function": 3, "scale": 1 },
+
+    # Defrost tuning (writable, Function 3). Addresses and bounds from the
+    # supplier manual's service-parameter table; previously entirely absent
+    # from this integration.
+    { "unique_id": "df02", "translation_key": "df02", "name": "Defrost Start Evap Temp", "address": 34, "data_type": "int16", "min_value": -100, "max_value": 100, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "df03", "translation_key": "df03", "name": "Defrost Ext Setpoint", "address": 35, "data_type": "int16", "min_value": 30, "max_value": 200, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "df04", "translation_key": "df04", "name": "Defrost Temp Diff", "address": 36, "data_type": "int16", "min_value": 80, "max_value": 200, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "df05", "translation_key": "df05", "name": "Defrost Start Delay", "address": 37, "data_type": "int16", "min_value": 1, "max_value": 1000, "unit": "s", "device_class": NumberDeviceClass.DURATION, "writable": True, "function": 3, "scale": 1 },
+    { "unique_id": "df06", "translation_key": "df06", "name": "Defrost Min Interval", "address": 38, "data_type": "int16", "min_value": 15, "max_value": 90, "unit": "min", "device_class": NumberDeviceClass.DURATION, "writable": True, "function": 3, "scale": 1 },
+    { "unique_id": "df09", "translation_key": "df09", "name": "Defrost End Temp", "address": 39, "data_type": "int16", "min_value": 50, "max_value": 600, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "df10", "translation_key": "df10", "name": "Defrost Max Duration", "address": 40, "data_type": "int16", "min_value": 1, "max_value": 1000, "unit": "s", "device_class": NumberDeviceClass.DURATION, "writable": True, "function": 3, "scale": 1 },
+    { "unique_id": "df13", "translation_key": "df13", "name": "Defrost Fan Start Temp", "address": 41, "data_type": "int16", "min_value": 50, "max_value": 600, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "df15", "translation_key": "df15", "name": "Defrost Heater Ext Setpoint", "address": 42, "data_type": "int16", "min_value": -100, "max_value": 100, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "df16", "translation_key": "df16", "name": "Defrost Forced Interval", "address": 43, "data_type": "int16", "min_value": 60, "max_value": 180, "unit": "min", "device_class": NumberDeviceClass.DURATION, "writable": True, "function": 3, "scale": 1 },
+
+    # Anti-freeze protection (writable, Function 3). Addresses confirmed in
+    # REGISTERS.md; the supplier manual describes these only in prose (no
+    # factory min/max table), so bounds here are a conservative estimate
+    # around the current tuned values rather than a manufacturer figure.
+    { "unique_id": "sf06", "translation_key": "sf06", "name": "Anti-Freeze Ext Start Setpoint", "address": 28, "data_type": "int16", "min_value": -200, "max_value": 200, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "sf08", "translation_key": "sf08", "name": "Anti-Freeze Temp Setpoint", "address": 30, "data_type": "int16", "min_value": 0, "max_value": 200, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
+    { "unique_id": "sf09", "translation_key": "sf09", "name": "Anti-Freeze Temp Diff", "address": 31, "data_type": "int16", "min_value": 10, "max_value": 100, "unit": "°C", "device_class": NumberDeviceClass.TEMPERATURE, "writable": True, "function": 3, "scale": 0.1 },
+
+    # DHW anti-legionella interval and pump-flow alarm delay (writable,
+    # Function 3). Addresses confirmed in REGISTERS.md.
+    { "unique_id": "st26", "translation_key": "st26", "name": "DHW Anti-Legionella Interval", "address": 76, "data_type": "int16", "min_value": 0, "max_value": 1000, "unit": "h", "device_class": NumberDeviceClass.DURATION, "writable": True, "function": 3, "scale": 1 },
+    { "unique_id": "ar04", "translation_key": "ar04", "name": "Pump Flow Alarm Delay", "address": 46, "data_type": "int16", "min_value": 1, "max_value": 120, "unit": "s", "device_class": NumberDeviceClass.DURATION, "writable": True, "function": 3, "scale": 1 },
 ]
 
 SENSORS = [
