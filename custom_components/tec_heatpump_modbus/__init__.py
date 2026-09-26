@@ -45,6 +45,10 @@ PLATFORMS: list[Platform] = [
 # some RTU-to-TCP gateways and devices are unreliable with large bit reads.
 MAX_BITS_PER_READ = 32
 
+# Modbus FC03/FC04 hard protocol limit: the byte-count field is one byte, so
+# a single read can return at most 250 bytes = 125 16-bit registers.
+MAX_REGISTERS_PER_READ = 125
+
 # Modbus function codes read on the slow cadence instead of every poll.
 # Function 3 is the holding-register block: writable parameters plus two
 # read-only settings, all of which only change when something writes them.
@@ -343,38 +347,42 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                             data[entity["unique_id"]] = bits_by_addr.get(entity["address"])
                         continue
 
-                    # Register reads: all addresses in one batch for efficiency.
-                    # NOTE: this spans min..max, so a single low or high address widens
-                    # the whole block. Modbus FC03/FC04 allow at most 125 registers per
-                    # read. Adding HR 1 (mode) in 2026.08.04 took the holding-register
-                    # block to 1..121 = 121 registers, leaving only 4 spare. Any new
-                    # holding register above 125 needs chunking first, the way the bit
-                    # reads above already do.
-                    count = max_addr - min_addr + 1
-                    result = await self.hass.async_add_executor_job(
-                        lambda: read_func(address=min_addr, count=count, device_id=device_id)
-                    )
+                    # Register reads: chunked, like the bit reads above. Modbus
+                    # FC03/FC04 allow at most 125 registers per read; spanning
+                    # min..max in one request breaks the moment that span exceeds
+                    # 125 (it did in 2026.09 once CN21/CN22 at HR 125/126 pushed
+                    # the holding-register block past the limit, taking the whole
+                    # integration into setup_retry). Chunking removes that ceiling.
+                    registers_by_addr = {}
+                    chunk_failed = False
+                    addr = min_addr
+                    while addr <= max_addr:
+                        chunk = min(MAX_REGISTERS_PER_READ, max_addr - addr + 1)
+                        result = await self.hass.async_add_executor_job(
+                            lambda a=addr, c=chunk: read_func(address=a, count=c, device_id=device_id)
+                        )
+                        if result.isError():
+                            chunk_failed = True
+                            if function_code not in self._logged_read_errors:
+                                self._logged_read_errors.add(function_code)
+                                _LOGGER.warning(
+                                    f"Modbus error reading function {function_code} at {addr}: {result}"
+                                )
+                        else:
+                            self._logged_read_errors.discard(function_code)
+                            for i in range(chunk):
+                                registers_by_addr[addr + i] = result.registers[i]
+                        addr += chunk
 
-                    if result.isError():
-                        if function_code not in self._logged_read_errors:
-                            self._logged_read_errors.add(function_code)
-                            _LOGGER.warning(f"Modbus error reading function {function_code}: {result}")
-                        if function_code in SLOW_FUNCTIONS:
-                            # Do not restart the slow timer on a failed read, and
-                            # keep serving the last good values in the meantime.
-                            slow_read_ok = False
-                            for entity in entities:
-                                uid = entity["unique_id"]
-                                if uid in self._slow_cache:
-                                    data[uid] = self._slow_cache[uid]
-                        continue
-                    self._logged_read_errors.discard(function_code)
+                    if chunk_failed and function_code in SLOW_FUNCTIONS:
+                        # Do not restart the slow timer on a failed read.
+                        slow_read_ok = False
 
                     for entity in entities:
-                        offset = entity["address"] - min_addr
+                        uid = entity["unique_id"]
+                        raw_value = registers_by_addr.get(entity["address"])
                         value = None
-                        if hasattr(result, "registers") and len(result.registers) > offset:
-                            raw_value = result.registers[offset]
+                        if raw_value is not None:
                             # Convert unsigned to signed int16 if needed
                             value = (
                                 raw_value - 65536
@@ -384,9 +392,15 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                             # Apply scaling factor (e.g., 0.1 to convert 250 to 25.0°C)
                             if "scale" in entity:
                                 value *= entity["scale"]
-                        data[entity["unique_id"]] = value
-                        if function_code in SLOW_FUNCTIONS:
-                            self._slow_cache[entity["unique_id"]] = value
+                            data[uid] = value
+                            if function_code in SLOW_FUNCTIONS:
+                                self._slow_cache[uid] = value
+                        elif function_code in SLOW_FUNCTIONS and uid in self._slow_cache:
+                            # This entity's chunk failed - keep serving its last
+                            # good value rather than flipping it to unknown.
+                            data[uid] = self._slow_cache[uid]
+                        else:
+                            data[uid] = None
 
                 if slow_due and slow_read_ok:
                     self._slow_last_read = now_m
