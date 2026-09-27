@@ -4,14 +4,14 @@
 
 > **Disclaimer:** This is an unofficial integration created by the community, not by TEC (The Energy Combination). TEC does not provide support for it. This is a community project - use it entirely at your own risk. Developed and tested with the TEC RS07VLF 7kW (R32) heat pump.
 
-Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **100 entities** — every temperature, pressure and alarm the unit reports, plus 30 writable settings — so you can monitor the machine properly and automate around it.
+Home Assistant integration for TEC (The Energy Combination) heat pumps over Modbus TCP. It exposes **131 entities** — every temperature, pressure and alarm the unit reports, plus 53 writable settings — so you can monitor the machine properly and automate around it.
 
 ## Features
 
 | Platform | Count | What it covers |
 |---|---|---|
-| Sensors | **51** | 28 from the unit's registers, 8 status sensors, 15 calculated |
-| Numbers | **30** | Writable settings, with min/max limits enforced |
+| Sensors | **63** | 28 from the unit's registers, 8 status sensors, 15 calculated, 8 unconfirmed (disabled by default) |
+| Numbers | **53** | Writable settings, with min/max limits enforced |
 | Binary sensors | **11** | Alarms plus derived watchdogs, `device_class: problem` |
 | Switches | **3** | AC, DHW, SG Function |
 | Buttons | **1** | Manual refresh |
@@ -23,6 +23,7 @@ Highlights, each described in full under [Available Entities](#available-entitie
 - **Season Mode and DHW Water Limit** — two firmware parameters that were previously only visible on the PGDX panel, and that explain a lot of otherwise puzzling behaviour
 - **Compressor diagnostics** — requested versus actual frequency, so you can watch the firmware throttle for pressure or discharge protection
 - **Compressor starts and runtime per day** — whether the machine runs nicely without a lot of start/stops, with yesterday alongside today for comparison
+- **23 additional writable settings**, confirmed address-by-address against the supplier installation manual — cooling-mode compressor limits, outdoor fan control, the full defrost tuning block, anti-freeze protection, DHW anti-legionella interval and the pump-flow alarm delay
 
 ### Configuration
 
@@ -181,7 +182,7 @@ You can add multiple TEC heat pumps by configuring each with a unique name:
 
 ## Available Entities
 
-### Sensors (55)
+### Sensors (63)
 
 #### From the unit's registers (28)
 
@@ -214,6 +215,12 @@ Several of these deserve explanation:
 > Released in 2026.08.04 as *Pump Speed Feedback*, which was wrong. IR 15 tracks the compressor, not the pump: it stays 0 while the pump ramps up, rises seconds before the compressor starts, and returns to 0 the instant the compressor stops, a full minute before the pump does. See [Upgrading to 2026.08.05](#upgrading-to-20260805).
 
 **Unit Counter IR16 / IR27** — exposed for investigation, not for use. IR 16 held a constant value through an hour and a half of full load, so it is not a counter — more likely a fixed code. IR 27 runs a sawtooth from 0 to roughly 34–41 and back over 4–7 minutes, but only during the last 20 minutes of a DHW cycle when discharge superheat is high, and the superheat drops on every reset. It reads as a periodic valve or oil-return action. If you recognise either, please open an issue.
+
+#### Unconfirmed registers, disabled by default (8)
+
+A 2026 TEC Modbus address-list PDF for a different model line (R290-series, not this RS07-11V/LF) claimed several registers this integration didn't have mapped: `Tar_Temp`, `IPM_Temp`, two fan-RPM registers, two COP counters, a return-water duplicate, and a status bitfield. Every one was tested by forcing a DHW cycle and reading it at 55 Hz full compressor load — all read flat 0 where the claimed value couldn't genuinely be 0 (a driver-board temperature that never rises above ambient at full load, a fan RPM of 0 while the fan is certainly spinning, and so on), so none of them hold up on this unit.
+
+They're exposed anyway as `Unknown IR19/30/32/33/36/37/47/48`, disabled by default so they don't clutter the entity list, purely so the raw value stays visible in case a firmware update or a longer observation window ever explains one of them.
 
 #### Status sensors from discrete inputs (8)
 
@@ -271,20 +278,26 @@ The summary is persisted, so a restart or an update does not cost you a cycle.
 
 **Compression Ratio** is discharge pressure over suction pressure. It is what actually sets the discharge temperature, so it explains the peaks the other sensors only show you after the fact.
 
-### Number Entities (30) — Writable Settings
+### Number Entities (53) — Writable Settings
 
 Adjustable directly from the Home Assistant UI or via `number.set_value`. Limits follow the manual, tightened where a wider range makes no physical sense (a pump *minimum* speed of 100% for instance), and following the unit where the manual contradicts itself: CM17 and CM18 both list a factory default outside their own stated min/max, and this unit shipped with CM17 at 95 against a stated maximum of 80.
 
 - Temperature setpoints (cooling, heating, DHW) and hysteresis
 - Heating/cooling curve compensation factors
-- Compressor frequency limits (heating & DHW: rated/min/max)
+- Compressor frequency limits (heating, cooling & DHW: rated/min/max)
 - Indoor pump parameters (target dT, min/max speed, min flow alarm)
-- DHW circulation pump timings
+- DHW circulation pump timings, plus the anti-legionella interval
 - Room temperature setting
+- Outdoor fan control (min/max speed, speed limit, min/max RPM)
+- Defrost tuning (start/end conditions, timing, heater setpoint)
+- Anti-freeze protection (start setpoint, temperature, differential)
+- Pump-flow alarm delay
 
-**Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st33`, `st34`, `room_temperature_setting`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
+**Register IDs:** `st01`, `st02`, `st03`, `st04`, `st06`, `st07`, `st08`, `st09`, `st10`, `st11`, `st12`, `st13`, `st14`, `st15`, `st16`, `st17`, `st18`, `st26`, `st33`, `st34`, `room_temperature_setting`, `cm11`, `cm12`, `cm13`, `cm14`, `cm15`, `cm16`, `cm17`, `cm18`, `cn01`, `cn02`, `cn03`, `cn21`, `cn22`, `df02`, `df03`, `df04`, `df05`, `df06`, `df09`, `df10`, `df13`, `df15`, `df16`, `sf06`, `sf08`, `sf09`, `ar04`, `ev03`, `ev04`, `ev05`, `ev06`, `ev07`
 
-### Alarm Binary Sensors (10)
+The 23 added in `2026.09.03` (`cm11`-`cm13`, `cn01`-`cn22`, `df02`-`df16`, `sf06`-`sf09`, `st26`, `ar04`) were confirmed address-by-address against the RS07-11V/LF supplier installation manual. Bounds come from the manual's factory table where it gives one; `sf06`/`sf08`/`sf09` only appear there in prose, so those three use a conservative estimate around the current tuned value instead.
+
+### Alarm Binary Sensors (11)
 
 Real `binary_sensor` entities with `device_class: problem` — they show up red in the UI and work directly with notification automations and blueprints:
 
@@ -368,7 +381,7 @@ IR 15 was published as the circulation pump's speed feedback. It is not: it is t
 - History under the old entity is not migrated, and would have been mislabelled anyway.
 - The README claim that it "works as a running indicator" for a stalled pump was wrong in the worst direction: in standby the pump genuinely circulates (0.6–0.7 m³/h) while IR 15 reads 0. Anything built on it would have fired constantly.
 
-**New: `binary_sensor.<device>_pump_flow_fault`**, which does what IR 15 was wrongly credited with, using water flow against commanded pump PWM. See [Alarm Binary Sensors](#alarm-binary-sensors-9).
+**New: `binary_sensor.<device>_pump_flow_fault`**, which does what IR 15 was wrongly credited with, using water flow against commanded pump PWM. See [Alarm Binary Sensors](#alarm-binary-sensors-11).
 
 ### ⚠️ Upgrading from 1.x to 2.0
 
@@ -388,7 +401,7 @@ Writable settings moved from `sensor.*` to `number.*` entities (**breaking chang
 - Automatic int16/uint16 conversion
 - Configurable scaling factors
 
-> **Note for contributors:** register reads span the lowest to the highest address in a single batch, so one outlying address widens the whole block. Modbus FC03/FC04 allow at most 125 registers per read, and the holding-register block currently spans 1..121. Any new holding register above address 125 needs chunking first, the way the bit reads already do.
+> **Note for contributors:** register reads (function 3/4) are chunked at 125 registers per request — the Modbus FC03/FC04 hard limit — the same pattern the bit reads (function 1/2) use via `MAX_BITS_PER_READ`. This was added in `2026.09.03` after the holding-register block reached HR 126 (`cn22`) and briefly took the whole integration into `setup_retry` (`"1 < count 126 < 125 !"`) on a single-batch read. A failed chunk only affects the entities whose address falls in it; the rest keep working. When adding a new holding/input register, this removes the address-125 ceiling, but it's still worth checking `REGISTERS.md` for how far the existing block already reaches.
 
 ### Based On
 
