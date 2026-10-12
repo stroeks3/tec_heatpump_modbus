@@ -1,6 +1,7 @@
 """Tests for the per-day compressor starts and runtime."""
 from __future__ import annotations
 
+from collections import deque
 from datetime import date
 from unittest.mock import MagicMock, patch
 
@@ -16,9 +17,12 @@ def _coordinator(day: str | None = None, **daily):
         "runtime_s": 0.0,
         "starts_yesterday": None,
         "runtime_yesterday": None,
+        "heater_s": 0.0,
+        "heater_yesterday": None,
     }
     c._daily.update(daily)
     c._was_running = None
+    c._start_times = deque()
     c._store = MagicMock()
     c._storage_payload = lambda: {}
     c._publish_daily = lambda data: TECHeatPumpCoordinator._publish_daily(c, data)

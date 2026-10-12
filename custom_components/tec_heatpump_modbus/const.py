@@ -249,6 +249,30 @@ SENSORS = [
     { "unique_id": "starts_yesterday", "translation_key": "starts_yesterday", "name": "Compressor Starts Yesterday", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
     { "unique_id": "runtime_yesterday", "translation_key": "runtime_yesterday", "name": "Compressor Runtime Yesterday", "unit": "min", "device_class": SensorDeviceClass.DURATION, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
 
+    # --- Electric heater runtime --------------------------------------------
+    # Counts the minutes the DHW element (DI 36, "DHW E-Heater") was on. Minutes
+    # and not kWh on purpose: the element's rating is not readable over Modbus
+    # and differs per install, so any kWh figure would be a guess. Multiply by
+    # your own element rating if you want energy. This is what makes the cost of
+    # a boost above ST20 visible: the element runs at COP 1, the compressor at 3-4.
+    { "unique_id": "heater_runtime_today", "translation_key": "heater_runtime_today", "name": "DHW E-Heater Runtime Today", "unit": "min", "device_class": SensorDeviceClass.DURATION, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
+    { "unique_id": "heater_runtime_yesterday", "translation_key": "heater_runtime_yesterday", "name": "DHW E-Heater Runtime Yesterday", "unit": "min", "device_class": SensorDeviceClass.DURATION, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+
+    # --- Hot tank (legionella hygiene) ----------------------------------------
+    # The last time the DHW tank sensor read HOT_TANK_THRESHOLD or more, and how
+    # many days ago that was. The tank sensor sits in the upper zone, so this is
+    # a proxy for a pasteurising run, not proof that the whole tank got there.
+    # Persisted, so a restart does not make a recent run look like never.
+    { "unique_id": "last_hot_tank", "translation_key": "last_hot_tank", "name": "Last Hot Tank", "unit": None, "device_class": SensorDeviceClass.TIMESTAMP, "state_class": None, "calculated": True },
+    { "unique_id": "days_since_hot_tank", "translation_key": "days_since_hot_tank", "name": "Days Since Hot Tank", "unit": "d", "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+
+    # --- Lifetime COP -----------------------------------------------------------
+    # Thermal over electrical energy since the counters began. Compressor power
+    # only, like the daily COP: the pump, the controller and the DHW element are
+    # not in the register, so this is the compressor COP and reads optimistic
+    # against a whole-system figure.
+    { "unique_id": "cop_total", "translation_key": "cop_total", "name": "COP (Total)", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+
     # --- Last completed compressor cycle -----------------------------------
     # Frozen when the compressor stops, held until the next cycle ends, and
     # persisted across restarts. Judging this machine has always meant pulling
@@ -419,7 +443,21 @@ BINARY_SENSORS = [
     # Deliberately no device_class: this is normal, designed behaviour, not a fault.
     # The 0.5 K margin catches the approach rather than only the exact hit.
     { "unique_id": "dhw_water_limited", "translation_key": "dhw_water_limited", "name": "DHW Limited By Water Temp", "device_class": None, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    # Derived: the compressor started RAPID_RESTART_COUNT or more times within
+    # the last RAPID_RESTART_WINDOW_S. Short cycling is the thing this machine is
+    # tuned against, and the daily start count only shows it after the fact. Holds
+    # nothing across a Home Assistant restart: the window is thirty minutes.
+    { "unique_id": "rapid_restarts", "translation_key": "rapid_restarts", "name": "Rapid Compressor Restarts", "device_class": BinarySensorDeviceClass.PROBLEM, "calculated": True },
 ]
+
+# Tank temperature (C) at or above which the DHW tank counts as having had a
+# hot (pasteurising) run.
+HOT_TANK_THRESHOLD = 60.0
+
+# Compressor starts inside this window (s) at or above this count are rapid
+# restarts. SAFETY.md: more than 3 in 30 minutes is the caution line.
+RAPID_RESTART_WINDOW_S = 1800.0
+RAPID_RESTART_COUNT = 4
 
 # How close the outlet must get to ST21 before the cycle counts as limited (K).
 DHW_WATER_LIMIT_MARGIN = 0.5
