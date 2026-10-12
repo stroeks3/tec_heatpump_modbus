@@ -385,6 +385,21 @@
       },
       "runtime_yesterday": {
         "name": "Compressor Runtime Yesterday"
+      },
+      "heater_runtime_today": {
+        "name": "DHW E-Heater Runtime Today"
+      },
+      "heater_runtime_yesterday": {
+        "name": "DHW E-Heater Runtime Yesterday"
+      },
+      "last_hot_tank": {
+        "name": "Last Hot Tank"
+      },
+      "days_since_hot_tank": {
+        "name": "Days Since Hot Tank"
+      },
+      "cop_total": {
+        "name": "COP (Total)"
       }
     },
     "binary_sensor": {
@@ -420,6 +435,9 @@
       },
       "dhw_water_limited": {
         "name": "DHW Limited By Water Temp"
+      },
+      "rapid_restarts": {
+        "name": "Rapid Compressor Restarts"
       }
     },
     "switch": {

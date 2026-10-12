@@ -30,6 +30,9 @@ from .const import (
     SWITCHES,
     REGISTER_TYPE_COIL,
     LOW_SUCTION_SUPERHEAT_THRESHOLD,
+    HOT_TANK_THRESHOLD,
+    RAPID_RESTART_COUNT,
+    RAPID_RESTART_WINDOW_S,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -192,11 +195,21 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             "runtime_s": 0.0,
             "starts_yesterday": None,
             "runtime_yesterday": None,
+            # DHW element on-time, same day boundaries as the compressor.
+            "heater_s": 0.0,
+            "heater_yesterday": None,
         }
         # Compressor state at the previous poll, so a start can be detected as
         # a transition. None means "not known yet" (first poll on a fresh
         # install), where a running compressor must not be counted as a start.
         self._was_running: bool | None = None
+        # Monotonic times of recent compressor starts, for the rapid-restart
+        # sensor. Not persisted: the window is half an hour.
+        self._start_times: deque = deque()
+        # ISO timestamp of the last poll that saw the tank at or above
+        # HOT_TANK_THRESHOLD. Persisted, so a restart cannot make a pasteurising
+        # run from last night look like it never happened.
+        self._last_hot: str | None = None
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
         delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
         update_interval = timedelta(seconds=delay)
@@ -260,6 +273,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             # Restoring this is what keeps an HA restart in the middle of a
             # run from being counted as an extra compressor start.
             self._was_running = stored.pop("was_running", None)
+            self._last_hot = stored.pop("last_hot_tank", None)
             self._energy.update(stored)
 
     async def async_close(self) -> None:
@@ -518,6 +532,16 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                 cop_daily = round(ratio, 2)
         data["cop_daily"] = cop_daily
 
+        # Lifetime COP, same guards as the daily one. 1 kWh = 3600 kJ before it
+        # is shown, so a fresh install does not publish a ratio of two noisy
+        # first readings.
+        cop_total = None
+        if e["elec_kj"] >= 3600.0:
+            ratio = e["thermal_kj"] / e["elec_kj"]
+            if 0 < ratio <= 15:
+                cop_total = round(ratio, 2)
+        data["cop_total"] = cop_total
+
         # Discharge over suction pressure: what actually sets discharge
         # temperature. Guarded against a zero or missing suction reading.
         hp = data.get("b7")
@@ -527,6 +551,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         )
 
         self._track_daily(data, dt_s)
+        self._track_tank(data)
         self._track_cycle(data, dt_s)
 
         # Persist periodically so the counters also survive a crash or
@@ -543,6 +568,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             "last_cycle": dict(self._last_cycle),
             "daily": dict(self._daily),
             "was_running": self._was_running,
+            "last_hot_tank": self._last_hot,
         }
 
     def _track_daily(self, data: dict, dt_s: float) -> None:
@@ -566,15 +592,25 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             if previous is not None and previous == today - timedelta(days=1):
                 d["starts_yesterday"] = d["starts"]
                 d["runtime_yesterday"] = round(d["runtime_s"] / 60.0, 1)
+                d["heater_yesterday"] = round(d["heater_s"] / 60.0, 1)
             else:
                 # A gap of more than one day: whatever we have is not
                 # yesterday, and labelling it so would be a lie.
                 d["starts_yesterday"] = None
                 d["runtime_yesterday"] = None
+                d["heater_yesterday"] = None
             d["day"] = today.isoformat()
             d["starts"] = 0
             d["runtime_s"] = 0.0
+            d["heater_s"] = 0.0
             self._store.async_delay_save(self._storage_payload, 1)
+
+        # The DHW element is independent of the compressor (it takes over when
+        # the compressor stops at ST21), so it is counted before the compressor
+        # register's possible early return. Same rule as everywhere: a failed
+        # read (None) adds nothing.
+        if data.get("no8"):
+            d["heater_s"] += dt_s
 
         freq = data.get("compressor")
         if freq is None:
@@ -588,6 +624,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         if running:
             if self._was_running is False:
                 d["starts"] += 1
+                self._start_times.append(time.monotonic())
                 # Save immediately, so the counter and the running flag are
                 # written together: a crash after this point must not be able
                 # to replay the same start.
@@ -604,6 +641,34 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         data["runtime_today"] = round(d["runtime_s"] / 60.0, 1)
         data["starts_yesterday"] = d["starts_yesterday"]
         data["runtime_yesterday"] = d["runtime_yesterday"]
+        data["heater_runtime_today"] = round(d["heater_s"] / 60.0, 1)
+        data["heater_runtime_yesterday"] = d["heater_yesterday"]
+
+        # Prune on every poll, not only on a start, so the count falls back
+        # below the threshold once the window has passed.
+        cutoff = time.monotonic() - RAPID_RESTART_WINDOW_S
+        while self._start_times and self._start_times[0] < cutoff:
+            self._start_times.popleft()
+        data["starts_in_window"] = len(self._start_times)
+
+    def _track_tank(self, data: dict) -> None:
+        """Remember when the DHW tank last reached HOT_TANK_THRESHOLD.
+
+        An unreadable tank sensor changes nothing: unknown is not cold.
+        """
+        tank = data.get("b4")
+        if tank is not None and tank >= HOT_TANK_THRESHOLD:
+            # No explicit save: this fires every poll while the tank is hot, and
+            # the periodic five-minute save already persists it.
+            self._last_hot = dt_util.utcnow().isoformat()
+
+        last = dt_util.parse_datetime(self._last_hot) if self._last_hot else None
+        data["last_hot_tank"] = last
+        data["days_since_hot_tank"] = (
+            round((dt_util.utcnow() - last).total_seconds() / 86400.0, 1)
+            if last is not None
+            else None
+        )
 
     def _track_cycle(self, data: dict, dt_s: float) -> None:
         """Accumulate per-cycle statistics, and freeze them when it ends.

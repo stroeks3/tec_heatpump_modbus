@@ -19,6 +19,8 @@ from .const import (
     DHW_WATER_LIMIT_MARGIN,
     LOW_SUCTION_SUPERHEAT_THRESHOLD,
     PUMP_FLOW_FAULT_THRESHOLD,
+    RAPID_RESTART_COUNT,
+    RAPID_RESTART_WINDOW_S,
 )
 
 # Raw value of UNIT_STATE_MAPPING's "DHW" entry, as read from IR 20.
@@ -114,6 +116,12 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
                 return False
             return outlet >= (limit - DHW_WATER_LIMIT_MARGIN)
 
+        if self.entity_description.key == "rapid_restarts":
+            starts = self.coordinator.data.get("starts_in_window")
+            if starts is None:
+                return None
+            return starts >= RAPID_RESTART_COUNT
+
         return None
 
     @property
@@ -162,6 +170,11 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
             attrs["margin"] = DHW_WATER_LIMIT_MARGIN
             attrs["water_outlet"] = self.coordinator.data.get("b2")
             attrs["dhw_water_limit"] = self.coordinator.data.get("st21")
+        elif self.entity_description.key == "rapid_restarts":
+            attrs["derived_from"] = "compressor starts"
+            attrs["starts_in_window"] = self.coordinator.data.get("starts_in_window")
+            attrs["start_threshold"] = RAPID_RESTART_COUNT
+            attrs["window_seconds"] = RAPID_RESTART_WINDOW_S
         else:
             attrs["address"] = self._config["address"]
             attrs["function"] = self._config["function"]

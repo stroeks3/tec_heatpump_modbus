@@ -253,6 +253,15 @@ Note the deliberate difference from the cycle summary below: **every start count
 
 Three things it does not do. A poll where the compressor register fails to read is treated as unknown, not as a stop, so a communication hiccup cannot invent a start/stop pair. Runtime uses the same capped interval as the energy counters, so an outage cannot fabricate hours the compressor never ran. And the running state is persisted along with the counters, so restarting Home Assistant in the middle of a run is not counted as an extra start.
 
+#### DHW element runtime, hot tank and lifetime COP (5) + rapid restarts
+
+| Entity | |
+|---|---|
+| **DHW E-Heater Runtime Today / Yesterday** | minutes the tank's electric element was on (DI 36). Minutes, not kWh: the element's rating is not readable over Modbus and differs per install, so multiply by your own. It runs at COP 1 where the compressor runs at 3-4, which makes the cost of a boost above ST20 visible. Counted even while the compressor is stopped, which is exactly when the element takes over. |
+| **Last Hot Tank** / **Days Since Hot Tank** | the last time the DHW tank sensor read 60 °C or more, and how many days ago. The sensor sits in the upper zone, so this is a proxy for a pasteurising run, not proof that the whole tank got there. Persisted across restarts. |
+| **COP (Total)** | thermal over electrical energy since the counters began (at least 1 kWh before it shows). Compressor power only, like the daily COP, so it reads optimistic against a whole-system figure. |
+| **Rapid Compressor Restarts** (binary sensor, problem) | on at 4 or more compressor starts within 30 minutes. A warning only; nothing is written to the unit. The window is not persisted across a Home Assistant restart. |
+
 #### Last cycle summary (8) and compression ratio
 
 Judging this machine used to mean pulling history and recomputing the same figures by hand every time. The coordinator already sees them go past, so it keeps them.

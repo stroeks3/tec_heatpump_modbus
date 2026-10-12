@@ -85,7 +85,20 @@ def test_unidentified_counters_are_diagnostic_and_off_by_default() -> None:
 def test_nothing_else_is_disabled_by_default() -> None:
     """Turning an entity off by default is a decision, not a default."""
     off = {s["unique_id"] for s in SENSORS if s.get("enabled_default") is False}
-    assert off == {"unit_counter_ir16", "unit_counter_ir27"}
+    assert off == {
+        "unit_counter_ir16",
+        "unit_counter_ir27",
+        # PDF registers disproven live on the RS07V/LF (see REGISTERS.md);
+        # kept but disabled so the R290 address list stays comparable.
+        "unknown_ir19",
+        "unknown_ir30",
+        "unknown_ir32",
+        "unknown_ir33",
+        "unknown_ir36",
+        "unknown_ir37",
+        "unknown_ir47",
+        "unknown_ir48",
+    }
 
 
 # --- the DHW ceiling indicator --------------------------------------------
