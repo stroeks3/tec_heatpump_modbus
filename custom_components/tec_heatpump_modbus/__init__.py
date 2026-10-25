@@ -33,6 +33,8 @@ from .const import (
     HOT_TANK_THRESHOLD,
     RAPID_RESTART_COUNT,
     RAPID_RESTART_WINDOW_S,
+    STATE_DEFROST,
+    STATE_DHW,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -160,7 +162,21 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             "day": None,
             "day_start_thermal_kj": 0.0,
             "day_start_elec_kj": 0.0,
+            # The same energy split by what the compressor was doing: DHW
+            # (operating state 9) against everything else. Missing from older
+            # storage files, so they start at zero on upgrade.
+            "space_thermal_kj": 0.0,
+            "space_elec_kj": 0.0,
+            "dhw_thermal_kj": 0.0,
+            "dhw_elec_kj": 0.0,
+            "day_start_space_thermal_kj": 0.0,
+            "day_start_space_elec_kj": 0.0,
+            "day_start_dhw_thermal_kj": 0.0,
+            "day_start_dhw_elec_kj": 0.0,
         }
+        # Which bucket the last poll with a readable operating state fell in,
+        # so a poll where only that register failed does not drop its energy.
+        self._bucket = "space"
         self._last_poll_t = None
         self._last_store_save = 0.0
         # Function codes currently failing to read; used to log a Modbus
@@ -198,7 +214,17 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             # DHW element on-time, same day boundaries as the compressor.
             "heater_s": 0.0,
             "heater_yesterday": None,
+            # Defrost starts, same day boundaries.
+            "defrosts": 0,
+            "defrosts_yesterday": None,
         }
+        # Defrost in progress (seconds so far, ambient at its start) and the
+        # frozen summary of the last completed one. Persisted like the cycle.
+        # _was_defrosting is None until the first readable state, so a unit
+        # found mid-defrost at startup is not counted as a defrost start.
+        self._defrost: dict[str, Any] | None = None
+        self._last_defrost: dict[str, Any] = {}
+        self._was_defrosting: bool | None = None
         # Compressor state at the previous poll, so a start can be detected as
         # a transition. None means "not known yet" (first poll on a fresh
         # install), where a running compressor must not be counted as a start.
@@ -274,6 +300,8 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             # run from being counted as an extra compressor start.
             self._was_running = stored.pop("was_running", None)
             self._last_hot = stored.pop("last_hot_tank", None)
+            self._last_defrost = stored.pop("last_defrost", None) or {}
+            self._was_defrosting = stored.pop("was_defrosting", None)
             self._energy.update(stored)
 
     async def async_close(self) -> None:
@@ -506,31 +534,40 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             # Local midnight rollover: snapshot the counters as the
             # baseline for today's COP
             e["day"] = today
-            e["day_start_thermal_kj"] = e["thermal_kj"]
-            e["day_start_elec_kj"] = e["elec_kj"]
+            for key in ("thermal_kj", "elec_kj", "space_thermal_kj", "space_elec_kj",
+                        "dhw_thermal_kj", "dhw_elec_kj"):
+                e[f"day_start_{key}"] = e[key]
 
         dt_s = 0.0
         if self._last_poll_t is not None:
             # Cap the gap so restarts/hiccups don't fabricate energy
             dt_s = min(now - self._last_poll_t, 30.0)
         self._last_poll_t = now
+        # DHW or the house. A failed state read keeps the previous bucket: the
+        # compressor does not switch circuits because one register timed out.
+        state = data.get("operational_state")
+        if state is not None:
+            self._bucket = "dhw" if state == STATE_DHW else "space"
+        bucket = self._bucket
         # Same state-based criterion as the 1h window (see above)
         if dt_s > 0 and thermal is not None and elec is not None and freq:
             e["thermal_kj"] += abs(thermal) * dt_s
             e["elec_kj"] += elec * dt_s
+            e[f"{bucket}_thermal_kj"] += abs(thermal) * dt_s
+            e[f"{bucket}_elec_kj"] += elec * dt_s
 
         data["thermal_energy"] = round(e["thermal_kj"] / 3600.0, 2)
         data["compressor_energy"] = round(e["elec_kj"] / 3600.0, 2)
+        data["space_thermal_energy"] = round(e["space_thermal_kj"] / 3600.0, 2)
+        data["space_compressor_energy"] = round(e["space_elec_kj"] / 3600.0, 2)
+        data["dhw_thermal_energy"] = round(e["dhw_thermal_kj"] / 3600.0, 2)
+        data["dhw_compressor_energy"] = round(e["dhw_elec_kj"] / 3600.0, 2)
 
-        cop_daily = None
-        day_thermal = e["thermal_kj"] - e["day_start_thermal_kj"]
-        day_elec = e["elec_kj"] - e["day_start_elec_kj"]
-        # 0.1 kWh = 360 kJ minimum consumed energy today
-        if day_elec >= 360.0:
-            ratio = day_thermal / day_elec
-            if 0 < ratio <= 15:
-                cop_daily = round(ratio, 2)
-        data["cop_daily"] = cop_daily
+        # 0.1 kWh = 360 kJ minimum consumed energy today before a daily COP
+        # is shown; same guard for the split figures.
+        data["cop_daily"] = self._daily_cop(e, "")
+        data["cop_space_daily"] = self._daily_cop(e, "space_")
+        data["cop_dhw_daily"] = self._daily_cop(e, "dhw_")
 
         # Lifetime COP, same guards as the daily one. 1 kWh = 3600 kJ before it
         # is shown, so a fresh install does not publish a ratio of two noisy
@@ -552,7 +589,9 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
 
         self._track_daily(data, dt_s)
         self._track_tank(data)
+        self._track_defrost(data, dt_s)
         self._track_cycle(data, dt_s)
+        self._add_setpoints(data)
 
         # Persist periodically so the counters also survive a crash or
         # power loss (a plain debounce would be postponed by every poll
@@ -560,6 +599,17 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         if now - self._last_store_save >= 300:
             self._last_store_save = now
             self._store.async_delay_save(self._storage_payload, 1)
+
+    @staticmethod
+    def _daily_cop(e: dict, prefix: str) -> float | None:
+        """Energy-weighted COP since local midnight for one counter pair."""
+        day_thermal = e[f"{prefix}thermal_kj"] - e[f"day_start_{prefix}thermal_kj"]
+        day_elec = e[f"{prefix}elec_kj"] - e[f"day_start_{prefix}elec_kj"]
+        if day_elec >= 360.0:
+            ratio = day_thermal / day_elec
+            if 0 < ratio <= 15:
+                return round(ratio, 2)
+        return None
 
     def _storage_payload(self) -> dict:
         """What gets written to HA storage."""
@@ -569,6 +619,8 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             "daily": dict(self._daily),
             "was_running": self._was_running,
             "last_hot_tank": self._last_hot,
+            "last_defrost": dict(self._last_defrost),
+            "was_defrosting": self._was_defrosting,
         }
 
     def _track_daily(self, data: dict, dt_s: float) -> None:
@@ -593,16 +645,19 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
                 d["starts_yesterday"] = d["starts"]
                 d["runtime_yesterday"] = round(d["runtime_s"] / 60.0, 1)
                 d["heater_yesterday"] = round(d["heater_s"] / 60.0, 1)
+                d["defrosts_yesterday"] = d["defrosts"]
             else:
                 # A gap of more than one day: whatever we have is not
                 # yesterday, and labelling it so would be a lie.
                 d["starts_yesterday"] = None
                 d["runtime_yesterday"] = None
                 d["heater_yesterday"] = None
+                d["defrosts_yesterday"] = None
             d["day"] = today.isoformat()
             d["starts"] = 0
             d["runtime_s"] = 0.0
             d["heater_s"] = 0.0
+            d["defrosts"] = 0
             self._store.async_delay_save(self._storage_payload, 1)
 
         # The DHW element is independent of the compressor (it takes over when
@@ -643,7 +698,6 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         data["runtime_yesterday"] = d["runtime_yesterday"]
         data["heater_runtime_today"] = round(d["heater_s"] / 60.0, 1)
         data["heater_runtime_yesterday"] = d["heater_yesterday"]
-
         # Prune on every poll, not only on a start, so the count falls back
         # below the threshold once the window has passed.
         cutoff = time.monotonic() - RAPID_RESTART_WINDOW_S
@@ -669,6 +723,81 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             if last is not None
             else None
         )
+
+    def _track_defrost(self, data: dict, dt_s: float) -> None:
+        """Count defrosts and summarise the last one.
+
+        A defrost is one uninterrupted stretch of operating state 4. The start
+        is a transition from a known other state, so a unit found mid-defrost
+        on the first poll is not counted, and a poll where the state register
+        failed neither starts nor ends one: unknown is not a state change.
+        The ambient is sampled at the start, which is the condition the DF
+        parameters are written against.
+        """
+        state = data.get("operational_state")
+        if state is not None:
+            defrosting = state == STATE_DEFROST
+            if defrosting:
+                if self._was_defrosting is False:
+                    self._daily["defrosts"] += 1
+                    self._defrost = {"seconds": 0.0, "ambient": data.get("t2")}
+                    self._store.async_delay_save(self._storage_payload, 1)
+                if self._defrost is not None:
+                    self._defrost["seconds"] += dt_s
+                    if self._defrost["ambient"] is None:
+                        self._defrost["ambient"] = data.get("t2")
+            elif self._defrost is not None:
+                d = self._defrost
+                self._defrost = None
+                self._last_defrost = {
+                    "at": dt_util.utcnow().isoformat(),
+                    "duration": round(d["seconds"] / 60.0, 1),
+                    "ambient": d["ambient"],
+                }
+                self._store.async_delay_save(self._storage_payload, 1)
+            self._was_defrosting = defrosting
+
+        last = self._last_defrost
+        data["defrosts_today"] = self._daily["defrosts"]
+        data["defrosts_yesterday"] = self._daily["defrosts_yesterday"]
+        data["last_defrost"] = (
+            dt_util.parse_datetime(last["at"]) if last.get("at") else None
+        )
+        data["last_defrost_duration"] = last.get("duration")
+        data["last_defrost_ambient"] = last.get("ambient")
+
+    def _add_setpoints(self, data: dict) -> None:
+        """Publish the active setpoint, its deviation and the restart thresholds.
+
+        The unit regulates on the water inlet, not the outlet: a stopped unit
+        restarts once the return crosses ST01 + ST03 (cooling) or ST02 - ST04
+        (heating), and a DHW cycle once the tank drops under ST09 - ST10. The
+        deviation is measured minus target, so negative in heating means the
+        water is still below where it should be.
+        """
+        dhw = data.get("operational_state") == STATE_DHW
+        cooling = data.get("mode") == 1
+
+        def _diff(a, b, sign=1):
+            return round(a + sign * b, 1) if a is not None and b is not None else None
+
+        if dhw:
+            target = data.get("st09")
+            measured = data.get("b4")
+        elif cooling:
+            target = data.get("st01")
+            measured = data.get("b1")
+        else:
+            target = data.get("st02")
+            measured = data.get("b1")
+        data["active_setpoint"] = target
+        data["setpoint_deviation"] = _diff(measured, target, -1)
+        data["restart_threshold"] = (
+            _diff(data.get("st01"), data.get("st03"))
+            if cooling
+            else _diff(data.get("st02"), data.get("st04"), -1)
+        )
+        data["dhw_restart_threshold"] = _diff(data.get("st09"), data.get("st10"), -1)
 
     def _track_cycle(self, data: dict, dt_s: float) -> None:
         """Accumulate per-cycle statistics, and freeze them when it ends.
