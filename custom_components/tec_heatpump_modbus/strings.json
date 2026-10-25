@@ -400,6 +400,51 @@
       },
       "cop_total": {
         "name": "COP (Total)"
+      },
+      "space_thermal_energy": {
+        "name": "Space Heating Thermal Energy"
+      },
+      "space_compressor_energy": {
+        "name": "Space Heating Compressor Energy"
+      },
+      "dhw_thermal_energy": {
+        "name": "DHW Thermal Energy"
+      },
+      "dhw_compressor_energy": {
+        "name": "DHW Compressor Energy"
+      },
+      "cop_space_daily": {
+        "name": "COP Space Heating (Today)"
+      },
+      "cop_dhw_daily": {
+        "name": "COP DHW (Today)"
+      },
+      "defrosts_today": {
+        "name": "Defrosts Today"
+      },
+      "defrosts_yesterday": {
+        "name": "Defrosts Yesterday"
+      },
+      "last_defrost": {
+        "name": "Last Defrost"
+      },
+      "last_defrost_duration": {
+        "name": "Last Defrost Duration"
+      },
+      "last_defrost_ambient": {
+        "name": "Last Defrost Ambient"
+      },
+      "active_setpoint": {
+        "name": "Active Setpoint"
+      },
+      "setpoint_deviation": {
+        "name": "Setpoint Deviation"
+      },
+      "restart_threshold": {
+        "name": "Space Restart Threshold"
+      },
+      "dhw_restart_threshold": {
+        "name": "DHW Restart Threshold"
       }
     },
     "binary_sensor": {

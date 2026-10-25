@@ -273,6 +273,56 @@ SENSORS = [
     # against a whole-system figure.
     { "unique_id": "cop_total", "translation_key": "cop_total", "name": "COP (Total)", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
 
+    # --- Energy split: space heating against hot water ----------------------
+    # The counters above put every kilowatt-hour on one heap. These split them
+    # by what the compressor was doing: operating state 9 is DHW, everything
+    # else (heating, cooling, defrost, starting) is the house. Cooling lands in
+    # the space bucket on purpose; the alternative was a third pair of counters
+    # that would read zero for nine months of the year.
+    #
+    # The lifetime counters are TOTAL_INCREASING, so the Energy dashboard can
+    # do its own per-day and per-month sums from them. The two COP figures are
+    # since local midnight, like COP (Today), and are what finally answers the
+    # question the single daily COP could not: whether a mediocre day was the
+    # heating or the hot water.
+    { "unique_id": "space_thermal_energy", "translation_key": "space_thermal_energy", "name": "Space Heating Thermal Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
+    { "unique_id": "space_compressor_energy", "translation_key": "space_compressor_energy", "name": "Space Heating Compressor Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
+    { "unique_id": "dhw_thermal_energy", "translation_key": "dhw_thermal_energy", "name": "DHW Thermal Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
+    { "unique_id": "dhw_compressor_energy", "translation_key": "dhw_compressor_energy", "name": "DHW Compressor Energy", "unit": "kWh", "device_class": SensorDeviceClass.ENERGY, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
+    { "unique_id": "cop_space_daily", "translation_key": "cop_space_daily", "name": "COP Space Heating (Today)", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+    { "unique_id": "cop_dhw_daily", "translation_key": "cop_dhw_daily", "name": "COP DHW (Today)", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+
+    # --- Defrost --------------------------------------------------------------
+    # Operating state 4 has been read since the first release and never
+    # counted. The DF02-DF16 block is writable, so you can tune defrost; these
+    # are what let you tell whether the tuning did anything. A defrost is one
+    # uninterrupted stretch of state 4; the ambient is sampled at its start,
+    # which is the figure the DF parameters are expressed against.
+    { "unique_id": "defrosts_today", "translation_key": "defrosts_today", "name": "Defrosts Today", "unit": None, "device_class": None, "state_class": SensorStateClass.TOTAL_INCREASING, "calculated": True },
+    { "unique_id": "defrosts_yesterday", "translation_key": "defrosts_yesterday", "name": "Defrosts Yesterday", "unit": None, "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+    { "unique_id": "last_defrost", "translation_key": "last_defrost", "name": "Last Defrost", "unit": None, "device_class": SensorDeviceClass.TIMESTAMP, "state_class": None, "calculated": True },
+    { "unique_id": "last_defrost_duration", "translation_key": "last_defrost_duration", "name": "Last Defrost Duration", "unit": "min", "device_class": SensorDeviceClass.DURATION, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    { "unique_id": "last_defrost_ambient", "translation_key": "last_defrost_ambient", "name": "Last Defrost Ambient", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+
+    # --- Active setpoint and restart thresholds -------------------------------
+    # What the unit is aiming at right now, in one number: ST09 during DHW,
+    # otherwise ST01 or ST02 by season mode. The IR19 "Tar_Temp" the PDF
+    # promised reads 0 on this unit; this is that sensor done by hand.
+    #
+    # The restart thresholds are where the real confusion lives. The unit
+    # regulates on the water INLET (return), not the outlet, and restarts only
+    # once the return crosses setpoint plus or minus its dT: ST01 + ST03 in
+    # cooling, ST02 - ST04 in heating, and the tank below ST09 - ST10 for DHW.
+    # Confirmed live for cooling on 2026-08-04, when ST01 + ST03 had drifted
+    # above the return and the unit sat in Standby until ST03 was lowered.
+    # The heating case is the mirror image and still to be confirmed on a
+    # real heating cycle. A Standby that will not end is almost always one of
+    # these two numbers sitting on the wrong side of the water.
+    { "unique_id": "active_setpoint", "translation_key": "active_setpoint", "name": "Active Setpoint", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+    { "unique_id": "setpoint_deviation", "translation_key": "setpoint_deviation", "name": "Setpoint Deviation", "unit": "K", "device_class": None, "state_class": SensorStateClass.MEASUREMENT, "calculated": True },
+    { "unique_id": "restart_threshold", "translation_key": "restart_threshold", "name": "Space Restart Threshold", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+    { "unique_id": "dhw_restart_threshold", "translation_key": "dhw_restart_threshold", "name": "DHW Restart Threshold", "unit": "°C", "device_class": SensorDeviceClass.TEMPERATURE, "state_class": SensorStateClass.MEASUREMENT, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
+
     # --- Last completed compressor cycle -----------------------------------
     # Frozen when the compressor stops, held until the next cycle ends, and
     # persisted across restarts. Judging this machine has always meant pulling
@@ -458,6 +508,10 @@ HOT_TANK_THRESHOLD = 60.0
 # restarts. SAFETY.md: more than 3 in 30 minutes is the caution line.
 RAPID_RESTART_WINDOW_S = 1800.0
 RAPID_RESTART_COUNT = 4
+
+# Operating-state codes the coordinator branches on (see UNIT_STATE_MAPPING).
+STATE_DEFROST = 4
+STATE_DHW = 9
 
 # How close the outlet must get to ST21 before the cycle counts as limited (K).
 DHW_WATER_LIMIT_MARGIN = 0.5

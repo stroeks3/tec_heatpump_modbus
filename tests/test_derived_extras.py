@@ -28,6 +28,8 @@ def _coordinator(**daily):
         "runtime_yesterday": None,
         "heater_s": 0.0,
         "heater_yesterday": None,
+        "defrosts": 0,
+        "defrosts_yesterday": None,
     }
     c._daily.update(daily)
     c._was_running = None

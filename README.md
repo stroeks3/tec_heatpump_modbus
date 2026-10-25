@@ -182,7 +182,7 @@ You can add multiple TEC heat pumps by configuring each with a unique name:
 
 ## Available Entities
 
-### Sensors (63)
+### Sensors (78)
 
 #### From the unit's registers (28)
 
@@ -261,6 +261,44 @@ Three things it does not do. A poll where the compressor register fails to read 
 | **Last Hot Tank** / **Days Since Hot Tank** | the last time the DHW tank sensor read 60 °C or more, and how many days ago. The sensor sits in the upper zone, so this is a proxy for a pasteurising run, not proof that the whole tank got there. Persisted across restarts. |
 | **COP (Total)** | thermal over electrical energy since the counters began (at least 1 kWh before it shows). Compressor power only, like the daily COP, so it reads optimistic against a whole-system figure. |
 | **Rapid Compressor Restarts** (binary sensor, problem) | on at 4 or more compressor starts within 30 minutes. A warning only; nothing is written to the unit. The window is not persisted across a Home Assistant restart. |
+
+#### Space heating against hot water (6)
+
+The energy counters above put every kilowatt-hour on one heap, so a mediocre daily COP never told you whether it was the heating or the hot water. These split them by what the compressor was doing: operating state `DHW` goes to the hot-water pair, everything else to the house.
+
+| Sensor | |
+|---|---|
+| **Space Heating Thermal Energy / Compressor Energy** | cumulative kWh while not making hot water. Cooling and defrost land here too, on purpose: a third pair that reads zero for nine months of the year helps nobody. |
+| **DHW Thermal Energy / Compressor Energy** | cumulative kWh during DHW cycles |
+| **COP Space Heating (Today) / COP DHW (Today)** | energy-weighted since local midnight, each shown once its own side has consumed 0.1 kWh |
+
+The four counters are `total_increasing`, so the Energy dashboard does its own per-day and per-month sums from them. Put the two thermal ones in as gas-replacement heat if you like a before/after against a boiler. A poll where only the state register fails keeps the previous bucket: the compressor does not switch circuits because one register timed out. On upgrade all four start at zero; the existing totals are untouched.
+
+#### Defrost (5)
+
+Operating state `Defrost` has been read since the first release and never counted. The DF02 to DF16 block is writable, so you could already tune defrost; these let you tell whether the tuning did anything.
+
+| Sensor | |
+|---|---|
+| **Defrosts Today / Yesterday** | one uninterrupted stretch of state `Defrost` counts once |
+| **Last Defrost** | timestamp of the end of the last one |
+| **Last Defrost Duration** | minutes, against DF10 |
+| **Last Defrost Ambient** | outdoor temperature when it started, which is what the DF parameters are expressed against |
+
+A unit found mid-defrost when Home Assistant starts is not counted as a start, and a poll where the state register fails neither starts nor ends one. The last-defrost summary is persisted.
+
+#### Active setpoint and restart thresholds (4)
+
+| Sensor | |
+|---|---|
+| **Active Setpoint** | what the unit is aiming at right now: ST09 during DHW, otherwise ST01 or ST02 by Season Mode |
+| **Setpoint Deviation** | measured minus target, in kelvin: the tank against ST09 during DHW, the water inlet against ST01/ST02 otherwise. Negative in heating means the water is still below where it should be. |
+| **Space Restart Threshold** | the inlet temperature the unit waits for before it restarts: ST01 + ST03 in cooling, ST02 − ST04 in heating |
+| **DHW Restart Threshold** | ST09 − ST10, the tank temperature that starts the next DHW cycle |
+
+The restart thresholds are where the real confusion lives. The unit regulates on the water **inlet**, not the outlet, and only restarts once the return has crossed setpoint plus or minus its dT. Confirmed live for cooling on 2026-08-04: ST01 + ST03 had drifted above the return and the unit sat in Standby until ST03 was lowered, at which point it started within one poll. The heating case is the mirror image and still to be confirmed on a real heating cycle. A Standby that will not end is almost always one of these two numbers sitting on the wrong side of the water, and now you can see it.
+
+> The PDF for the R290 series lists an IR19 `Tar_Temp` for exactly this. It reads 0 on this unit, so Active Setpoint is that register done by hand.
 
 #### Last cycle summary (8) and compression ratio
 
