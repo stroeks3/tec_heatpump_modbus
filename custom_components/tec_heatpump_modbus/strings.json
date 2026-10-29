@@ -12,6 +12,15 @@
           "delay": "Delay (seconds)",
           "timeout": "Timeout (seconds)"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure TEC Heat Pump Modbus",
+        "description": "Change the connection to the heat pump. Entities and history stay with this entry.",
+        "data": {
+          "host": "Host (IP address)",
+          "port": "Port",
+          "device_id": "Device ID"
+        }
       }
     },
     "error": {
@@ -20,16 +29,20 @@
       "unknown": "Unexpected error occurred."
     },
     "abort": {
-      "already_configured": "This device is already configured."
+      "already_configured": "This device is already configured.",
+      "reconfigure_successful": "Connection updated."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "TEC Heat Pump Options",
+        "description": "Turn setpoint writes off for an entity when something else (an automation, a weather curve) already drives its setpoint; the entity then shows the setpoint without a slider. On/off keeps working either way.",
         "data": {
           "delay": "Delay (seconds)",
-          "timeout": "Timeout (seconds)"
+          "timeout": "Timeout (seconds)",
+          "climate_writes": "Thermostat may write the heating/cooling setpoint",
+          "water_heater_writes": "Water heater may write the DHW setpoint"
         }
       }
     }
@@ -500,6 +513,24 @@
       "refresh_data": {
         "name": "Refresh Data"
       }
+    },
+    "climate": {
+      "heating": {
+        "name": "Heating"
+      }
+    },
+    "water_heater": {
+      "dhw": {
+        "name": "DHW"
+      }
+    }
+  },
+  "exceptions": {
+    "writes_disabled": {
+      "message": "Setpoint writes from this entity are disabled in the integration options."
+    },
+    "wrong_season": {
+      "message": "Season mode is set on the PGDX panel; the unit is in {season} season."
     }
   }
 }

@@ -95,13 +95,14 @@ rules:
   entity-translations: done
   exception-translations:
     status: todo
-    comment: Exceptions use plain hardcoded messages, not translation_domain/translation_key.
+    comment: >
+      The climate and water_heater entities raise translated ServiceValidationErrors;
+      the coordinator's write failures and the write_register service still use
+      plain messages.
   icon-translations:
     status: todo
     comment: No icons.json; only the refresh button hardcodes an mdi icon.
-  reconfiguration-flow:
-    status: todo
-    comment: No async_step_reconfigure; users must remove and re-add the entry to change host/port/device_id.
+  reconfiguration-flow: done
   repair-issues:
     status: todo
     comment: No repairs.py / async_create_issue usage.

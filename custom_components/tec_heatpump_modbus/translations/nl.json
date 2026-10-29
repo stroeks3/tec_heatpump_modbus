@@ -12,6 +12,15 @@
           "delay": "Vertraging (seconden)",
           "timeout": "Time-out (seconden)"
         }
+      },
+      "reconfigure": {
+        "title": "TEC Heat Pump Modbus opnieuw instellen",
+        "description": "Wijzig de verbinding met de warmtepomp. Entiteiten en historie blijven bij deze instantie.",
+        "data": {
+          "host": "Host (IP-adres)",
+          "port": "Poort",
+          "device_id": "Device ID"
+        }
       }
     },
     "error": {
@@ -20,18 +29,30 @@
       "unknown": "Onverwachte fout opgetreden."
     },
     "abort": {
-      "already_configured": "Dit apparaat is al geconfigureerd."
+      "already_configured": "Dit apparaat is al geconfigureerd.",
+      "reconfigure_successful": "Verbinding bijgewerkt."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "TEC Heat Pump Opties",
+        "description": "Zet het schrijven van setpoints uit voor een entiteit als iets anders (een automatisering, een stooklijn) dat setpoint al bepaalt; de entiteit toont het setpoint dan zonder schuif. Aan/uit blijft altijd werken.",
         "data": {
           "delay": "Vertraging (seconden)",
-          "timeout": "Time-out (seconden)"
+          "timeout": "Time-out (seconden)",
+          "climate_writes": "Thermostaat mag het verwarm-/koelsetpoint schrijven",
+          "water_heater_writes": "Boiler mag het tapwatersetpoint schrijven"
         }
       }
+    }
+  },
+  "exceptions": {
+    "writes_disabled": {
+      "message": "Het schrijven van setpoints vanuit deze entiteit staat uit in de opties van de integratie."
+    },
+    "wrong_season": {
+      "message": "De seizoensmodus wordt op het PGDX-paneel gezet; de unit staat in het {season}-seizoen."
     }
   }
 }
