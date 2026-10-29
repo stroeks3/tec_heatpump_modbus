@@ -23,6 +23,7 @@ from .const import (
     CONF_TIMEOUT,
     DEFAULT_NAME,
     DEFAULT_DELAY,
+    DEFAULT_TIMEOUT,
     DOMAIN,
     BINARY_SENSORS,
     NUMBERS,
@@ -44,6 +45,8 @@ PLATFORMS: list[Platform] = [
     Platform.NUMBER,
     Platform.BUTTON,
     Platform.SWITCH,
+    Platform.CLIMATE,
+    Platform.WATER_HEATER,
 ]
 
 # Bit-based Modbus functions (coils / discrete inputs) are read in chunks:
@@ -75,6 +78,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) 
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Options (poll interval, timeout, setpoint writes) take effect through a
+    # reload; the coordinator saves its counters on unload, so nothing is lost.
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     async def write_register_service(call: ServiceCall):
         """Service handler to write a value to a register.
@@ -124,6 +130,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) 
     return True
 
 
+async def _async_update_listener(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) -> None:
+    """Reload the entry when its options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) -> bool:
     """Unload a config entry."""
     hass.services.async_remove(DOMAIN, "write_register")
@@ -146,8 +157,8 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         self.host = entry.data[CONF_HOST]
         self.port = entry.data[CONF_PORT]
         self.device_id = entry.data[CONF_DEVICE_ID]
-        self.timeout = entry.data[CONF_TIMEOUT]
         self.entry = entry
+        self.timeout = self.option(CONF_TIMEOUT, entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT))
         self._client = None
         self._modbus_lock = asyncio.Lock()
         # Rolling window of (monotonic time, |thermal kW|, electrical kW)
@@ -237,7 +248,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         # run from last night look like it never happened.
         self._last_hot: str | None = None
         device_name = entry.data.get(CONF_NAME, entry.title or DEFAULT_NAME)
-        delay = entry.data.get(CONF_DELAY, DEFAULT_DELAY)
+        delay = self.option(CONF_DELAY, entry.data.get(CONF_DELAY, DEFAULT_DELAY))
         update_interval = timedelta(seconds=delay)
         # config_entry is required since HA 2026.8 (hard error when omitted)
         super().__init__(
@@ -253,6 +264,14 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
             manufacturer="TEC",
             model="Heat Pump",
         )
+
+    def option(self, key: str, default: Any) -> Any:
+        """An entry option, falling back to the given default.
+
+        Options written by the options flow win over the original setup data,
+        which only ever carried delay and timeout.
+        """
+        return self.entry.options.get(key, default)
 
     @property
     def client_connected(self) -> bool:

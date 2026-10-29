@@ -57,6 +57,15 @@ async def test_setup_and_unload_entry(hass: HomeAssistant, mock_modbus_client) -
     mock_modbus_client.close.assert_called()
 
 
+async def test_climate_and_water_heater_are_created(hass: HomeAssistant, mock_modbus_client) -> None:
+    """The two bundled entities exist on the same device as the rest."""
+    entry = await _setup_entry(hass)
+    registry = entity_registry.async_get(hass)
+    assert registry.async_get_entity_id("climate", DOMAIN, f"{entry.entry_id}_climate")
+    assert registry.async_get_entity_id("water_heater", DOMAIN, f"{entry.entry_id}_water_heater")
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_setup_entry_not_ready_when_unreachable(
     hass: HomeAssistant, mock_modbus_client
 ) -> None:

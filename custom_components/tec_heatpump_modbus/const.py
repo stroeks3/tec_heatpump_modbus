@@ -12,6 +12,12 @@ CONF_NAME = "name"
 CONF_DEVICE_ID = "device_id"
 CONF_DELAY = "delay"
 CONF_TIMEOUT = "timeout"
+# Options: whether the climate and water_heater entities may write setpoints.
+# Both default to on. Turn the climate one off when something else already
+# drives ST02/ST01 (a weather-curve automation, for instance): a thermostat
+# card slider would otherwise be overwritten within minutes and confuse.
+CONF_CLIMATE_WRITES = "climate_writes"
+CONF_WATER_HEATER_WRITES = "water_heater_writes"
 
 # Default values
 DEFAULT_NAME = "TEC Heat Pump"
@@ -509,9 +515,24 @@ HOT_TANK_THRESHOLD = 60.0
 RAPID_RESTART_WINDOW_S = 1800.0
 RAPID_RESTART_COUNT = 4
 
-# Operating-state codes the coordinator branches on (see UNIT_STATE_MAPPING).
+# Operating-state codes the coordinator and the climate entity branch on
+# (see UNIT_STATE_MAPPING).
+STATE_HEATING = 1
+STATE_COOLING = 2
+STATE_ANTIFREEZE = 3
 STATE_DEFROST = 4
+STATE_STANDBY = 5
+STATE_OFF = 6
+STATE_STARTING = 7
+STATE_ON = 8
 STATE_DHW = 9
+
+# Season mode (HR 1): set on the PGDX panel, read-only over Modbus.
+MODE_HEATING = 0
+MODE_COOLING = 1
+
+# Fallback DHW setpoint range (C) when ST15/ST16 do not read.
+DHW_TEMP_FALLBACK = (30.0, 80.0)
 
 # How close the outlet must get to ST21 before the cycle counts as limited (K).
 DHW_WATER_LIMIT_MARGIN = 0.5

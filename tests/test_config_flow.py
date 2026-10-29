@@ -9,10 +9,12 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.tec_heatpump_modbus.const import (
+    CONF_CLIMATE_WRITES,
     CONF_DELAY,
     CONF_DEVICE_ID,
     CONF_NAME,
     CONF_TIMEOUT,
+    CONF_WATER_HEATER_WRITES,
     DEFAULT_NAME,
     DOMAIN,
 )
@@ -91,3 +93,55 @@ async def test_duplicate_entry_aborts(hass: HomeAssistant, mock_modbus_client) -
     )
     assert result["type"] == data_entry_flow.FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_options_flow_stores_writes_and_polling(hass: HomeAssistant, mock_modbus_client) -> None:
+    """The options flow stores delay, timeout and the two write switches."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=f"{USER_INPUT[CONF_HOST]}_{USER_INPUT[CONF_DEVICE_ID]}",
+        data=USER_INPUT,
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_DELAY: 10, CONF_TIMEOUT: 5, CONF_CLIMATE_WRITES: False, CONF_WATER_HEATER_WRITES: True},
+    )
+    await hass.async_block_till_done()
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert entry.options[CONF_CLIMATE_WRITES] is False
+    assert entry.options[CONF_DELAY] == 10
+    # The reload picked the new interval up.
+    assert entry.runtime_data.update_interval.total_seconds() == 10
+
+
+async def test_reconfigure_updates_host_and_unique_id(hass: HomeAssistant, mock_modbus_client) -> None:
+    """A moved gateway keeps its entry; the unique id follows the host."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=f"{USER_INPUT[CONF_HOST]}_{USER_INPUT[CONF_DEVICE_ID]}",
+        data=USER_INPUT,
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await entry.start_reconfigure_flow(hass)
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: "192.168.1.200", CONF_PORT: 502, CONF_DEVICE_ID: 9}
+    )
+    await hass.async_block_till_done()
+    assert result["type"] == data_entry_flow.FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_HOST] == "192.168.1.200"
+    assert entry.unique_id == "192.168.1.200_9"

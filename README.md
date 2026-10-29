@@ -325,6 +325,23 @@ The summary is persisted, so a restart or an update does not cost you a cycle.
 
 **Compression Ratio** is discharge pressure over suction pressure. It is what actually sets the discharge temperature, so it explains the peaks the other sensors only show you after the fact.
 
+### As a thermostat and a water heater (2)
+
+Everything above is a list of 152 separate entities. Two more bundle the ones that belong together into the entities Home Assistant already knows: a `climate` for the heating circuit and a `water_heater` for the tank. The thermostat card, voice assistants, the Companion app and every blueprint that targets `climate` or `water_heater` work with them out of the box. No new register is read; they write through the same paths as the number and switch entities.
+
+| Entity | Shows | Writes |
+|---|---|---|
+| **Heating** (`climate`) | current = **Water Inlet**, target = ST02 (heating season) or ST01 (cooling season), limits from ST13/ST14 or ST11/ST12, `hvac_action` from Operating State (`heating`, `cooling`, `defrosting`, `preheating` while starting, `idle` in standby and during DHW) | setpoint; on/off through the AC Switch |
+| **DHW** (`water_heater`) | current = DHW Tank, target = ST09, limits from ST15/ST16, state `heat_pump`, `electric` while the element runs, or `off` | setpoint; on/off through the DHW Switch |
+
+Three things to know.
+
+**It regulates on water, not on the room.** That is what the registers are; a climate entity pretending to control the room would be lying. The current temperature is the water **inlet** (return), because that is what the unit itself regulates and restarts on: a stopped unit restarts once the return crosses ST02 − ST04 (heating) or ST01 + ST03 (cooling), both confirmed live. Compare with the **Space Restart Threshold** sensor.
+
+**The season lives on the panel.** HR 1 (heating or cooling season) is read-only over Modbus, so the climate entity offers `off` and whichever of `heat`/`cool` the panel is set to. Asking for the other one raises a clear error instead of silently switching the unit on.
+
+**Turn setpoint writes off if something else owns the setpoint.** If an automation or weather curve writes ST02 every few minutes, a slider on a thermostat card would be overwritten within minutes. The integration options (Settings → Devices & services → TEC Heat Pump → Configure) have two switches, *Thermostat may write the heating/cooling setpoint* and *Water heater may write the DHW setpoint*, both on by default. Off, the entity shows the setpoint without a slider and `set_temperature` fails loudly. On/off keeps working either way. The same options page sets the poll interval and timeout; host, port and device id are changed through *Reconfigure* on the entry, which keeps entities and history.
+
 ### Number Entities (53) — Writable Settings
 
 Adjustable directly from the Home Assistant UI or via `number.set_value`. Limits follow the manual, tightened where a wider range makes no physical sense (a pump *minimum* speed of 100% for instance), and following the unit where the manual contradicts itself: CM17 and CM18 both list a factory default outside their own stated min/max, and this unit shipped with CM17 at 95 against a stated maximum of 80.
