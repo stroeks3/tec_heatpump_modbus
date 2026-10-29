@@ -47,6 +47,9 @@ class TECHeatPumpWaterHeater(CoordinatorEntity[TECHeatPumpCoordinator], WaterHea
 
     _attr_has_entity_name = True
     _attr_translation_key = "dhw"
+    # Fallback for installs whose translation files do not load; the other
+    # platforms carry the same fallback through their name= field.
+    _attr_name = "DHW"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_HALVES
     _attr_target_temperature_step = 0.5

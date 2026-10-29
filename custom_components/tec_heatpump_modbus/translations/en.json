@@ -1,0 +1,536 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "TEC Heat Pump Modbus",
+        "description": "Configure the connection to your TEC Heat Pump.",
+        "data": {
+          "name": "Name (optional)",
+          "host": "Host (IP address)",
+          "port": "Port",
+          "device_id": "Device ID",
+          "delay": "Delay (seconds)",
+          "timeout": "Timeout (seconds)"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure TEC Heat Pump Modbus",
+        "description": "Change the connection to the heat pump. Entities and history stay with this entry.",
+        "data": {
+          "host": "Host (IP address)",
+          "port": "Port",
+          "device_id": "Device ID"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the heat pump. Check the IP address and port.",
+      "invalid_device_id": "Connection successful but communication failed. Verify the Device ID is correct.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This device is already configured.",
+      "reconfigure_successful": "Connection updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "TEC Heat Pump Options",
+        "description": "Turn setpoint writes off for an entity when something else (an automation, a weather curve) already drives its setpoint; the entity then shows the setpoint without a slider. On/off keeps working either way.",
+        "data": {
+          "delay": "Delay (seconds)",
+          "timeout": "Timeout (seconds)",
+          "climate_writes": "Thermostat may write the heating/cooling setpoint",
+          "water_heater_writes": "Water heater may write the DHW setpoint"
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "st01": {
+        "name": "Cooling Setpoint"
+      },
+      "st02": {
+        "name": "Heating Setpoint"
+      },
+      "st03": {
+        "name": "Cooling dT"
+      },
+      "st04": {
+        "name": "Heating dT"
+      },
+      "st06": {
+        "name": "Heating Curve Slope"
+      },
+      "st07": {
+        "name": "Aux Heat Start Ambient"
+      },
+      "st08": {
+        "name": "Cooling Curve Slope"
+      },
+      "st09": {
+        "name": "DHW Setpoint"
+      },
+      "st10": {
+        "name": "DHW Hysteresis"
+      },
+      "st11": {
+        "name": "Cooling Setpoint Min"
+      },
+      "st12": {
+        "name": "Cooling Setpoint Max"
+      },
+      "st13": {
+        "name": "Heating Setpoint Min"
+      },
+      "st14": {
+        "name": "Heating Setpoint Max"
+      },
+      "st15": {
+        "name": "DHW Setpoint Min"
+      },
+      "st16": {
+        "name": "DHW Setpoint Max"
+      },
+      "st17": {
+        "name": "SG Heating Offset"
+      },
+      "st18": {
+        "name": "SG DHW Offset"
+      },
+      "st33": {
+        "name": "DHW Circ Pump Off Time"
+      },
+      "st34": {
+        "name": "DHW Circ Pump Run Time"
+      },
+      "room_temperature_setting": {
+        "name": "Room Setpoint"
+      },
+      "cm14": {
+        "name": "Heating Rated Freq"
+      },
+      "cm15": {
+        "name": "Heating Max Freq"
+      },
+      "cm16": {
+        "name": "Heating Min Freq"
+      },
+      "cm17": {
+        "name": "DHW Max Freq"
+      },
+      "cm18": {
+        "name": "DHW Min Freq"
+      },
+      "ev03": {
+        "name": "Pump Target dT (Cooling)"
+      },
+      "ev04": {
+        "name": "Pump Target dT (Heating)"
+      },
+      "ev05": {
+        "name": "Pump Max Speed"
+      },
+      "ev06": {
+        "name": "Pump Min Speed"
+      },
+      "ev07": {
+        "name": "Pump Min Flow Alarm"
+      },
+      "cm11": {
+        "name": "Cooling Rated Freq"
+      },
+      "cm12": {
+        "name": "Cooling Max Freq"
+      },
+      "cm13": {
+        "name": "Cooling Min Freq"
+      },
+      "cn01": {
+        "name": "Fan Max Speed"
+      },
+      "cn02": {
+        "name": "Fan Min Speed"
+      },
+      "cn03": {
+        "name": "Fan Max Speed Limit"
+      },
+      "cn21": {
+        "name": "Fan Max RPM"
+      },
+      "cn22": {
+        "name": "Fan Min RPM"
+      },
+      "df02": {
+        "name": "Defrost Start Evap Temp"
+      },
+      "df03": {
+        "name": "Defrost Ext Setpoint"
+      },
+      "df04": {
+        "name": "Defrost Temp Diff"
+      },
+      "df05": {
+        "name": "Defrost Start Delay"
+      },
+      "df06": {
+        "name": "Defrost Min Interval"
+      },
+      "df09": {
+        "name": "Defrost End Temp"
+      },
+      "df10": {
+        "name": "Defrost Max Duration"
+      },
+      "df13": {
+        "name": "Defrost Fan Start Temp"
+      },
+      "df15": {
+        "name": "Defrost Heater Ext Setpoint"
+      },
+      "df16": {
+        "name": "Defrost Forced Interval"
+      },
+      "sf06": {
+        "name": "Anti-Freeze Ext Start Setpoint"
+      },
+      "sf08": {
+        "name": "Anti-Freeze Temp Setpoint"
+      },
+      "sf09": {
+        "name": "Anti-Freeze Temp Diff"
+      },
+      "st26": {
+        "name": "DHW Anti-Legionella Interval"
+      },
+      "ar04": {
+        "name": "Pump Flow Alarm Delay"
+      }
+    },
+    "sensor": {
+      "b1": {
+        "name": "Water Inlet"
+      },
+      "b2": {
+        "name": "Water Outlet"
+      },
+      "t2": {
+        "name": "Ambient"
+      },
+      "t3": {
+        "name": "Discharge"
+      },
+      "t4": {
+        "name": "Suction"
+      },
+      "b4": {
+        "name": "DHW Tank"
+      },
+      "b6": {
+        "name": "Low Pressure"
+      },
+      "b7": {
+        "name": "High Pressure"
+      },
+      "flow": {
+        "name": "Water Flow"
+      },
+      "room_temperature": {
+        "name": "Room Temperature"
+      },
+      "compressor": {
+        "name": "Compressor Frequency"
+      },
+      "y3": {
+        "name": "Pump PWM"
+      },
+      "operational_state": {
+        "name": "Operating State"
+      },
+      "mode": {
+        "name": "Season Mode"
+      },
+      "unit_thermal_energy": {
+        "name": "Unit Thermal Energy Total"
+      },
+      "unit_electrical_energy": {
+        "name": "Unit Electrical Energy Total"
+      },
+      "unit_counter_ir16": {
+        "name": "Unit Counter IR16"
+      },
+      "unit_counter_ir27": {
+        "name": "Unit Counter IR27"
+      },
+      "unknown_ir19": {
+        "name": "Unknown IR19 (PDF: Tar_Temp)"
+      },
+      "unknown_ir30": {
+        "name": "Unknown IR30 (PDF: IPM_Temp)"
+      },
+      "unknown_ir32": {
+        "name": "Unknown IR32 (PDF: Fan_Speed_1)"
+      },
+      "unknown_ir33": {
+        "name": "Unknown IR33 (PDF: Fan_Speed_2)"
+      },
+      "unknown_ir36": {
+        "name": "Unknown IR36 (PDF: COP_Total)"
+      },
+      "unknown_ir37": {
+        "name": "Unknown IR37 (PDF: COP_6_Min)"
+      },
+      "unknown_ir47": {
+        "name": "Unknown IR47 (PDF: RT_Temp dup)"
+      },
+      "unknown_ir48": {
+        "name": "Unknown IR48 (PDF: status bitfield)"
+      },
+      "fan_speed": {
+        "name": "Fan Speed"
+      },
+      "st21": {
+        "name": "DHW Water Limit"
+      },
+      "eev_step": {
+        "name": "EEV Position"
+      },
+      "suction_superheat": {
+        "name": "Suction Superheat"
+      },
+      "discharge_superheat": {
+        "name": "Discharge Superheat"
+      },
+      "operating_hours": {
+        "name": "Operating Hours"
+      },
+      "compressor_power": {
+        "name": "Compressor Power"
+      },
+      "comp_current_motor": {
+        "name": "Compressor Current (Motor)"
+      },
+      "comp_current_ac": {
+        "name": "Compressor Current (AC)"
+      },
+      "freq_requested": {
+        "name": "Compressor Frequency Requested"
+      },
+      "thermal_power": {
+        "name": "Thermal Power"
+      },
+      "cop": {
+        "name": "COP"
+      },
+      "cop_1h": {
+        "name": "COP (1h Average)"
+      },
+      "cop_daily": {
+        "name": "COP (Today)"
+      },
+      "thermal_energy": {
+        "name": "Thermal Energy"
+      },
+      "compressor_energy": {
+        "name": "Compressor Energy"
+      },
+      "secondary_pump": {
+        "name": "Secondary Pump"
+      },
+      "primary_pump": {
+        "name": "Primary Pump"
+      },
+      "no1": {
+        "name": "DHW Circ Pump"
+      },
+      "no4": {
+        "name": "AC Heater"
+      },
+      "no6": {
+        "name": "Gas Boiler"
+      },
+      "no8": {
+        "name": "DHW E-Heater"
+      },
+      "di31": {
+        "name": "AC Enable Status"
+      },
+      "d07": {
+        "name": "Crankcase Heater"
+      },
+      "compression_ratio": {
+        "name": "Compression Ratio"
+      },
+      "cycle_duration": {
+        "name": "Last Cycle Duration"
+      },
+      "cycle_mean_superheat": {
+        "name": "Last Cycle Mean Suction Superheat"
+      },
+      "cycle_low_superheat_pct": {
+        "name": "Last Cycle Low Superheat Time"
+      },
+      "cycle_min_superheat": {
+        "name": "Last Cycle Min Suction Superheat"
+      },
+      "cycle_peak_discharge": {
+        "name": "Last Cycle Peak Discharge"
+      },
+      "cycle_peak_high_pressure": {
+        "name": "Last Cycle Peak High Pressure"
+      },
+      "cycle_tank_rise": {
+        "name": "Last Cycle Tank Rise"
+      },
+      "cycle_cop": {
+        "name": "Last Cycle COP"
+      },
+      "starts_today": {
+        "name": "Compressor Starts Today"
+      },
+      "runtime_today": {
+        "name": "Compressor Runtime Today"
+      },
+      "starts_yesterday": {
+        "name": "Compressor Starts Yesterday"
+      },
+      "runtime_yesterday": {
+        "name": "Compressor Runtime Yesterday"
+      },
+      "heater_runtime_today": {
+        "name": "DHW E-Heater Runtime Today"
+      },
+      "heater_runtime_yesterday": {
+        "name": "DHW E-Heater Runtime Yesterday"
+      },
+      "last_hot_tank": {
+        "name": "Last Hot Tank"
+      },
+      "days_since_hot_tank": {
+        "name": "Days Since Hot Tank"
+      },
+      "cop_total": {
+        "name": "COP (Total)"
+      },
+      "space_thermal_energy": {
+        "name": "Space Heating Thermal Energy"
+      },
+      "space_compressor_energy": {
+        "name": "Space Heating Compressor Energy"
+      },
+      "dhw_thermal_energy": {
+        "name": "DHW Thermal Energy"
+      },
+      "dhw_compressor_energy": {
+        "name": "DHW Compressor Energy"
+      },
+      "cop_space_daily": {
+        "name": "COP Space Heating (Today)"
+      },
+      "cop_dhw_daily": {
+        "name": "COP DHW (Today)"
+      },
+      "defrosts_today": {
+        "name": "Defrosts Today"
+      },
+      "defrosts_yesterday": {
+        "name": "Defrosts Yesterday"
+      },
+      "last_defrost": {
+        "name": "Last Defrost"
+      },
+      "last_defrost_duration": {
+        "name": "Last Defrost Duration"
+      },
+      "last_defrost_ambient": {
+        "name": "Last Defrost Ambient"
+      },
+      "active_setpoint": {
+        "name": "Active Setpoint"
+      },
+      "setpoint_deviation": {
+        "name": "Setpoint Deviation"
+      },
+      "restart_threshold": {
+        "name": "Space Restart Threshold"
+      },
+      "dhw_restart_threshold": {
+        "name": "DHW Restart Threshold"
+      }
+    },
+    "binary_sensor": {
+      "al01": {
+        "name": "Low Pressure Alarm"
+      },
+      "al02": {
+        "name": "High Pressure Alarm"
+      },
+      "al03": {
+        "name": "Low Outlet Temp Alarm"
+      },
+      "al05": {
+        "name": "High Outlet Temp Alarm"
+      },
+      "al17": {
+        "name": "Low Flow Alarm"
+      },
+      "al18": {
+        "name": "LP Alarm Count Exceeded"
+      },
+      "al19": {
+        "name": "HP Alarm Count Exceeded"
+      },
+      "al_inv": {
+        "name": "Inverter Alarm"
+      },
+      "pump_flow_fault": {
+        "name": "Pump Flow Fault"
+      },
+      "low_suction_superheat": {
+        "name": "Low Suction Superheat"
+      },
+      "dhw_water_limited": {
+        "name": "DHW Limited By Water Temp"
+      },
+      "rapid_restarts": {
+        "name": "Rapid Compressor Restarts"
+      }
+    },
+    "switch": {
+      "di4": {
+        "name": "AC Switch"
+      },
+      "di5": {
+        "name": "DHW Switch"
+      },
+      "tr12": {
+        "name": "SG Mode"
+      }
+    },
+    "button": {
+      "refresh_data": {
+        "name": "Refresh Data"
+      }
+    },
+    "climate": {
+      "heating": {
+        "name": "Heating"
+      }
+    },
+    "water_heater": {
+      "dhw": {
+        "name": "DHW"
+      }
+    }
+  },
+  "exceptions": {
+    "writes_disabled": {
+      "message": "Setpoint writes from this entity are disabled in the integration options."
+    },
+    "wrong_season": {
+      "message": "Season mode is set on the PGDX panel; the unit is in {season} season."
+    }
+  }
+}

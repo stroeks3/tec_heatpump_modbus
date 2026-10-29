@@ -151,3 +151,18 @@ def test_ceiling_indicator_is_not_a_problem_class() -> None:
     """This is designed behaviour, not a fault; it must not show up red."""
     assert LIMITED.get("device_class") is None
     assert LIMITED.get("entity_category") is EntityCategory.DIAGNOSTIC
+
+
+def test_en_translations_match_strings() -> None:
+    """Custom integrations load translations/en.json, never strings.json.
+
+    Without this file the options form shows raw keys and translated
+    exceptions fall back to their key (seen live on 2026.10.03-beta.1).
+    """
+    import json
+    from pathlib import Path
+
+    base = Path(__file__).resolve().parents[1] / "custom_components" / "tec_heatpump_modbus"
+    strings = json.loads((base / "strings.json").read_text(encoding="utf-8"))
+    en = json.loads((base / "translations" / "en.json").read_text(encoding="utf-8"))
+    assert en == strings
