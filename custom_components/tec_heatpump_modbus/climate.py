@@ -75,6 +75,9 @@ class TECHeatPumpClimate(CoordinatorEntity[TECHeatPumpCoordinator], ClimateEntit
 
     _attr_has_entity_name = True
     _attr_translation_key = "heating"
+    # Fallback for installs whose translation files do not load; the other
+    # platforms carry the same fallback through their name= field.
+    _attr_name = "Heating"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_HALVES
     _attr_target_temperature_step = 0.5
