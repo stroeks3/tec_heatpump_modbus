@@ -163,6 +163,10 @@ class TECHeatPumpClimate(CoordinatorEntity[TECHeatPumpCoordinator], ClimateEntit
         return {
             "operating_state": UNIT_STATE_MAPPING.get(state, state),
             "season_mode": MODE_MAPPING.get(data.get("mode"), data.get("mode")),
+            # Home Assistant only publishes `temperature` on a climate entity
+            # that supports TARGET_TEMPERATURE, so with writes off the card
+            # would show no target at all. This keeps it visible.
+            "setpoint": self.target_temperature,
             "water_outlet": data.get("b2"),
             "restart_threshold": data.get("restart_threshold"),
             "writes_enabled": self._writes_enabled,
