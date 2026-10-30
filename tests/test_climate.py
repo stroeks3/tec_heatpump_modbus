@@ -111,3 +111,9 @@ def test_the_wrong_season_is_refused_not_silently_mapped() -> None:
     with pytest.raises(ServiceValidationError):
         asyncio.run(cl.async_set_hvac_mode(HVACMode.COOL))
     c.write_coil.assert_not_awaited()
+
+
+def test_the_setpoint_stays_visible_as_an_attribute_when_writes_are_off() -> None:
+    """HA hides `temperature` without TARGET_TEMPERATURE; the attribute must not."""
+    assert _entity(writes=False)[0].extra_state_attributes["setpoint"] == 28.0
+    assert _entity(writes=False, mode=MODE_COOLING)[0].extra_state_attributes["setpoint"] == 18.0
