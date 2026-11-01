@@ -12,6 +12,7 @@ from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.storage import Store
@@ -36,7 +37,9 @@ from .const import (
     RAPID_RESTART_WINDOW_S,
     STATE_DEFROST,
     STATE_DHW,
+    CONF_SAFETY_REPAIRS,
 )
+from . import safety
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [
@@ -62,6 +65,8 @@ MAX_REGISTERS_PER_READ = 125
 # read-only settings, all of which only change when something writes them.
 SLOW_FUNCTIONS = frozenset({3})
 SLOW_READ_INTERVAL_S = 60.0
+
+SAFETY_LEARN_MORE_URL = "https://github.com/stroeks3/tec_heatpump_modbus#safety-notices"
 
 # A compressor run shorter than this is not summarised. Against the ST21
 # ceiling the firmware produces 1-2 minute retries that are all tail and
@@ -133,6 +138,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) 
 async def _async_update_listener(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) -> None:
     """Reload the entry when its options change."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) -> None:
+    """Take this entry's safety notices with it when the entry is removed.
+
+    A plain reload leaves them in place; the coordinator re-judges them on its
+    first poll.
+    """
+    for issue_id in safety.ISSUE_IDS:
+        ir.async_delete_issue(hass, DOMAIN, f"{entry.entry_id}_{issue_id}")
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) -> bool:
@@ -236,6 +251,14 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         self._defrost: dict[str, Any] | None = None
         self._last_defrost: dict[str, Any] = {}
         self._was_defrosting: bool | None = None
+        # Safety floors: when each register was first seen under its floor
+        # (monotonic, not persisted), what is in breach after the debounce, and
+        # which Repairs notices are up. _issues_synced makes the first poll
+        # sweep away notices that expired while the entry was unloaded.
+        self._below_since: dict[str, float] = {}
+        self._breached: set[str] = set()
+        self._issues_active: dict[str, tuple] = {}
+        self._issues_synced = False
         # Compressor state at the previous poll, so a start can be detected as
         # a transition. None means "not known yet" (first poll on a fresh
         # install), where a running compressor must not be counted as a start.
@@ -611,6 +634,7 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         self._track_defrost(data, dt_s)
         self._track_cycle(data, dt_s)
         self._add_setpoints(data)
+        self._check_safety(data)
 
         # Persist periodically so the counters also survive a crash or
         # power loss (a plain debounce would be postponed by every poll
@@ -784,6 +808,61 @@ class TECHeatPumpCoordinator(DataUpdateCoordinator):
         )
         data["last_defrost_duration"] = last.get("duration")
         data["last_defrost_ambient"] = last.get("ambient")
+
+    def _check_safety(self, data: dict) -> None:
+        """Judge the hard floors and the inverter alarm, and keep the notices in step.
+
+        data["safety_breaches"] lists the registers that are in breach after the
+        debounce; the Safety Floor Breach sensor reads it whether or not the
+        Repairs notices are switched on. A register that did not read keeps
+        whatever it showed before: unknown is not all clear.
+        """
+        active, unknown = safety.evaluate(data, time.monotonic(), self._below_since)
+        self._breached = (self._breached & unknown) | set(active)
+        data["safety_breaches"] = sorted(
+            issue_id.removeprefix("floor_")
+            for issue_id in self._breached
+            if issue_id.startswith("floor_")
+        )
+        self._sync_issues(active)
+
+    def _sync_issues(self, active: dict) -> None:
+        """Create, update or delete the Repairs notices."""
+        enabled = self.option(CONF_SAFETY_REPAIRS, True)
+        first = not self._issues_synced
+        self._issues_synced = True
+        for issue_id in safety.ISSUE_IDS:
+            full_id = f"{self.entry.entry_id}_{issue_id}"
+            breach = active.get(issue_id) if enabled else None
+            if breach is not None:
+                marker = (breach.value, breach.floor)
+                # Only touch the registry when something changed: this runs
+                # every poll, and the value only moves when someone writes it.
+                if self._issues_active.get(issue_id) != marker:
+                    placeholders = {}
+                    if breach.value is not None:
+                        placeholders = {
+                            "value": f"{breach.value:g}",
+                            "floor": f"{breach.floor:g}",
+                            "unit": breach.unit,
+                        }
+                    ir.async_create_issue(
+                        self.hass,
+                        DOMAIN,
+                        full_id,
+                        is_fixable=False,
+                        severity=ir.IssueSeverity(breach.severity),
+                        translation_key=issue_id,
+                        translation_placeholders=placeholders,
+                        learn_more_url=SAFETY_LEARN_MORE_URL,
+                    )
+                    self._issues_active[issue_id] = marker
+            elif enabled and issue_id in self._breached:
+                # Did not read this poll; leave the notice as it is.
+                continue
+            elif issue_id in self._issues_active or first:
+                ir.async_delete_issue(self.hass, DOMAIN, full_id)
+                self._issues_active.pop(issue_id, None)
 
     def _add_setpoints(self, data: dict) -> None:
         """Publish the active setpoint, its deviation and the restart thresholds.

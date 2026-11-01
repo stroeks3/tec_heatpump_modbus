@@ -42,7 +42,8 @@
           "delay": "Delay (seconds)",
           "timeout": "Timeout (seconds)",
           "climate_writes": "Thermostat may write the heating/cooling setpoint",
-          "water_heater_writes": "Water heater may write the DHW setpoint"
+          "water_heater_writes": "Water heater may write the DHW setpoint",
+          "safety_repairs": "Show a notice when a safety floor is crossed (EV06, CM16, CM13) or the inverter alarm latches"
         }
       }
     }
@@ -496,6 +497,9 @@
       },
       "rapid_restarts": {
         "name": "Rapid Compressor Restarts"
+      },
+      "safety_floor_breach": {
+        "name": "Safety Floor Breach"
       }
     },
     "switch": {
@@ -531,6 +535,24 @@
     },
     "wrong_season": {
       "message": "Season mode is set on the PGDX panel; the unit is in {season} season."
+    }
+  },
+  "issues": {
+    "floor_ev06": {
+      "title": "Pump Min Speed (EV06) is below the safe floor",
+      "description": "EV06 has been {value} {unit} for more than 5 minutes.\n\nBelow {floor} {unit} the pump can stop moving water without the controller noticing. With the compressor running there is then no chiller flow to cool the inverter (IGBT); this is the likely main contributor to the AL143 inverter trip of 2026-05-13.\n\nSet Pump Min Speed back to {floor} {unit} or higher in this device's settings. This notice disappears by itself once the value is back. If your hardware differs from the RS07V/LF, you can turn these notices off in the integration options."
+    },
+    "floor_cm16": {
+      "title": "Heating Min Freq (CM16) is below the safe floor",
+      "description": "CM16 has been {value} {unit} for more than 5 minutes.\n\nBelow {floor} {unit} the heating compressor stops protectively (28 and 29 Hz stop at once on the RS07V/LF). Under a Smart Grid override the same setting becomes inverter (IGBT) stress instead.\n\nSet Heating Min Freq back to {floor} {unit} or higher in this device's settings. This notice disappears by itself once the value is back. If your hardware differs from the RS07V/LF, you can turn these notices off in the integration options."
+    },
+    "floor_cm13": {
+      "title": "Cooling Min Freq (CM13) is below the safe floor",
+      "description": "CM13 has been {value} {unit} for more than 5 minutes.\n\nBelow {floor} {unit} the cooling compressor stops protectively, the same pattern as CM16 in heating. The manufacturer default of 20 Hz is under the floor confirmed on the RS07V/LF.\n\nSet Cooling Min Freq back to {floor} {unit} or higher in this device's settings. This notice disappears by itself once the value is back. If your hardware differs from the RS07V/LF, you can turn these notices off in the integration options."
+    },
+    "inverter_alarm": {
+      "title": "Inverter alarm is latched",
+      "description": "The unit reports a latched inverter (IGBT) alarm. It stays on until it is reset on the PGDX panel or the unit is power-cycled.\n\n1. Set SG mode to off if it is on.\n2. Let the pressures equalise with the pump running (about 5 minutes).\n3. Try the alarm reset on the PGDX panel; if that does not clear it, power-cycle the heat pump.\n4. Wait until the unit is ready again before changing any settings.\n5. If the alarm will not clear, call service."
     }
   }
 }

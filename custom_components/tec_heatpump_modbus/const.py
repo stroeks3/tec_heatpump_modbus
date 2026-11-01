@@ -18,6 +18,8 @@ CONF_TIMEOUT = "timeout"
 # card slider would otherwise be overwritten within minutes and confuse.
 CONF_CLIMATE_WRITES = "climate_writes"
 CONF_WATER_HEATER_WRITES = "water_heater_writes"
+# Option: raise Repairs notices when a safety floor is crossed (default on).
+CONF_SAFETY_REPAIRS = "safety_repairs"
 
 # Default values
 DEFAULT_NAME = "TEC Heat Pump"
@@ -504,7 +506,30 @@ BINARY_SENSORS = [
     # tuned against, and the daily start count only shows it after the fact. Holds
     # nothing across a Home Assistant restart: the window is thirty minutes.
     { "unique_id": "rapid_restarts", "translation_key": "rapid_restarts", "name": "Rapid Compressor Restarts", "device_class": BinarySensorDeviceClass.PROBLEM, "calculated": True },
+    # Derived: one of the empirical hard floors below has been crossed for the
+    # debounce period. The same condition raises a Repairs notice; this sensor
+    # is what an automation can hang a push notification on, because Repairs
+    # are passive.
+    { "unique_id": "safety_floor_breach", "translation_key": "safety_floor_breach", "name": "Safety Floor Breach", "device_class": BinarySensorDeviceClass.PROBLEM, "calculated": True, "entity_category": EntityCategory.DIAGNOSTIC },
 ]
+
+# Empirical hard floors (SAFETY.md), confirmed on an RS07V/LF. Below them the
+# unit misbehaves in ways that can end in an IGBT trip (AL143, 2026-05-13):
+#   EV06 below 23 %  - the pump can stall without the controller noticing
+#   CM16 below 30 Hz - heating compressor stops protectively (28 and 29 Hz stop
+#                      at once, stepwise test 2026-05-16); under SG override it
+#                      becomes IGBT stress instead
+#   CM13 below 30 Hz - same pattern in cooling (2026-05-24)
+# The number entities deliberately keep the factory ranges, so nothing else in
+# Home Assistant stops a write below these. On other models the floors may
+# differ; the safety_repairs option turns the notices off.
+SAFETY_FLOORS = {"ev06": 23.0, "cm16": 30.0, "cm13": 30.0}
+SAFETY_FLOOR_UNITS = {"ev06": "%", "cm16": "Hz", "cm13": "Hz"}
+# A floor must be crossed this long (s) before it is reported, so a deliberate
+# stepwise test does not light up a notice on every step.
+SAFETY_DEBOUNCE_S = 300.0
+# EV06 arrives as raw * 0.1, so 23.0 can read 22.9999999.
+SAFETY_TOLERANCE = 0.05
 
 # Tank temperature (C) at or above which the DHW tank counts as having had a
 # hot (pasteurising) run.

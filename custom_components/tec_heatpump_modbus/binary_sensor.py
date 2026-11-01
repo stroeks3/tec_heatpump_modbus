@@ -21,6 +21,8 @@ from .const import (
     PUMP_FLOW_FAULT_THRESHOLD,
     RAPID_RESTART_COUNT,
     RAPID_RESTART_WINDOW_S,
+    SAFETY_DEBOUNCE_S,
+    SAFETY_FLOORS,
 )
 
 # Raw value of UNIT_STATE_MAPPING's "DHW" entry, as read from IR 20.
@@ -122,6 +124,12 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
                 return None
             return starts >= RAPID_RESTART_COUNT
 
+        if self.entity_description.key == "safety_floor_breach":
+            breaches = self.coordinator.data.get("safety_breaches")
+            if breaches is None:
+                return None
+            return bool(breaches)
+
         return None
 
     @property
@@ -175,6 +183,11 @@ class TECHeatPumpBinarySensor(CoordinatorEntity[TECHeatPumpCoordinator], BinaryS
             attrs["starts_in_window"] = self.coordinator.data.get("starts_in_window")
             attrs["start_threshold"] = RAPID_RESTART_COUNT
             attrs["window_seconds"] = RAPID_RESTART_WINDOW_S
+        elif self.entity_description.key == "safety_floor_breach":
+            attrs["derived_from"] = "EV06 + CM16 + CM13 against their hard floors"
+            attrs["breaching_registers"] = self.coordinator.data.get("safety_breaches")
+            attrs["floors"] = dict(SAFETY_FLOORS)
+            attrs["debounce_seconds"] = SAFETY_DEBOUNCE_S
         else:
             attrs["address"] = self._config["address"]
             attrs["function"] = self._config["function"]

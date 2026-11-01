@@ -10,6 +10,7 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry
+from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.tec_heatpump_modbus.const import (
@@ -179,3 +180,83 @@ async def test_switch_write_failure_raises(hass: HomeAssistant, mock_modbus_clie
 
     # The refresh in `finally` must still run despite the raised error.
     assert mock_modbus_client.read_coils.called
+
+def _holding_registers(values: dict[int, int]):
+    """A read_holding_registers stand-in answering from an address -> raw map."""
+
+    def _read(**kwargs):
+        result = MagicMock()
+        result.isError.return_value = False
+        start, count = kwargs["address"], kwargs.get("count", 1)
+        result.registers = [values.get(start + i, 0) for i in range(count)]
+        return result
+
+    return _read
+
+
+async def _breach(hass: HomeAssistant, mock_modbus_client):
+    """Set up with every holding register at 0 (EV06, CM16, CM13 all under their
+    floors), then age the debounce timers so one more poll reports them."""
+    entry = await _setup_entry(hass)
+    coordinator = entry.runtime_data
+    for key in coordinator._below_since:
+        coordinator._below_since[key] -= 400
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    return entry, coordinator
+
+
+async def test_floor_breach_raises_repairs_notices_and_the_sensor(
+    hass: HomeAssistant, mock_modbus_client
+) -> None:
+    """Registers under their floors for the debounce period raise Repairs notices
+    and switch the Safety Floor Breach sensor on; the inverter alarm stays quiet."""
+    entry, _ = await _breach(hass, mock_modbus_client)
+
+    registry = ir.async_get(hass)
+    for issue_id in ("floor_ev06", "floor_cm16", "floor_cm13"):
+        issue = registry.async_get_issue(DOMAIN, f"{entry.entry_id}_{issue_id}")
+        assert issue is not None, issue_id
+        assert issue.is_fixable is False
+    assert registry.async_get_issue(DOMAIN, f"{entry.entry_id}_inverter_alarm") is None
+
+    entity_id = entity_registry.async_get(hass).async_get_entity_id(
+        "binary_sensor", DOMAIN, f"{entry.entry_id}_safety_floor_breach"
+    )
+    assert hass.states.get(entity_id).state == "on"
+
+
+async def test_floor_notices_clear_when_the_registers_are_back(
+    hass: HomeAssistant, mock_modbus_client
+) -> None:
+    """Writing the registers back to or above their floors takes the notices down."""
+    entry, coordinator = await _breach(hass, mock_modbus_client)
+
+    # EV06 raw 230 = 23.0 %, CM16 and CM13 = 30 Hz.
+    mock_modbus_client.read_holding_registers.side_effect = _holding_registers(
+        {21: 230, 121: 30, 122: 30}
+    )
+    coordinator.force_slow_read()
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    registry = ir.async_get(hass)
+    for issue_id in ("floor_ev06", "floor_cm16", "floor_cm13"):
+        assert registry.async_get_issue(DOMAIN, f"{entry.entry_id}_{issue_id}") is None
+    entity_id = entity_registry.async_get(hass).async_get_entity_id(
+        "binary_sensor", DOMAIN, f"{entry.entry_id}_safety_floor_breach"
+    )
+    assert hass.states.get(entity_id).state == "off"
+
+
+async def test_removing_the_entry_removes_its_notices(
+    hass: HomeAssistant, mock_modbus_client
+) -> None:
+    entry, _ = await _breach(hass, mock_modbus_client)
+    registry = ir.async_get(hass)
+    assert registry.async_get_issue(DOMAIN, f"{entry.entry_id}_floor_ev06") is not None
+
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert registry.async_get_issue(DOMAIN, f"{entry.entry_id}_floor_ev06") is None

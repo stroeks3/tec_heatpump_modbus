@@ -383,6 +383,81 @@ Brief dips are ordinary valve regulation and stay quiet. The threshold pair is e
 
 No compressor condition is needed in your automations: the superheat sensor itself reports `unknown` when the compressor is stopped, and `unknown` is never below the threshold.
 
+### Safety notices
+
+Some values of this unit have a floor below which it misbehaves in ways that can end in an inverter (IGBT) trip, and nothing in Home Assistant stops a write below them: the number entities keep the factory ranges on purpose. So the integration watches them and tells you.
+
+| Notice | When | Severity |
+|---|---|---|
+| **Pump Min Speed (EV06) below the safe floor** | EV06 under 23 % for 5 minutes | error |
+| **Heating Min Freq (CM16) below the safe floor** | CM16 under 30 Hz for 5 minutes | warning |
+| **Cooling Min Freq (CM13) below the safe floor** | CM13 under 30 Hz for 5 minutes | warning |
+| **Inverter alarm is latched** | the latched IGBT alarm bit is set, with no wait | critical |
+
+They appear under **Settings → Repairs**, with a dot on the Settings icon, and carry what the floor is, why, and what to do. For the inverter alarm that is the recovery sequence: SG mode off, let the pressures equalise with the pump running, reset on the PGDX panel, power-cycle if that does not clear it. A notice disappears by itself as soon as the value is back on or above its floor or the alarm bit clears. They never write anything: putting the value back is one tap on the number entity.
+
+Where the floors come from: EV06 below about 23 % can stall the pump without the controller noticing, which with the compressor running leaves the inverter without chiller flow. CM16 and CM13 below 30 Hz stop the compressor protectively (28 and 29 Hz stop at once, stepwise test); under a Smart Grid override the same setting becomes inverter stress instead. **They were confirmed on an RS07V/LF.** On other hardware the floors may differ, and the factory CM16/CM13 of 20 Hz sits under them, so a fresh install will show the CM notices until you raise the value or turn the notices off.
+
+Three things to know:
+- **Five minutes, not at once**, so a deliberate stepwise test does not light a notice on every step. A floor you cross for a few minutes and restore stays silent. The timer starts again after a Home Assistant restart.
+- **A register that does not read changes nothing.** Unknown is not all clear and not a breach.
+- **Repairs are passive.** They do not push to your phone. The diagnostic binary sensor **Safety Floor Breach** is on while any of the three floors is breached (its attribute `breaching_registers` names them), which is what a notification automation can trigger on; the existing **Inverter Alarm** sensor does the same for the alarm. The sensor works whether or not the notices are enabled.
+
+Turn the notices off with *Show a notice when a safety floor is crossed* in the integration options (Settings → Devices & services → TEC Heat Pump → Configure).
+
+### Dashboard examples
+
+The two thermostat entities work with the standard cards. Replace the entity ids with yours (they follow the device name).
+
+```yaml
+type: thermostat
+entity: water_heater.tec_heat_pump
+name: Hot water
+```
+
+```yaml
+type: thermostat
+entity: climate.tec_heat_pump
+name: Heating (water inlet)
+```
+
+With thermostat writes turned off the climate card shows no target, because Home Assistant hides it on an entity that cannot be written. The target is on the `setpoint` attribute:
+
+```yaml
+type: entities
+title: Heating
+entities:
+  - entity: climate.tec_heat_pump
+    name: Water inlet
+  - type: attribute
+    entity: climate.tec_heat_pump
+    attribute: setpoint
+    name: Target
+    suffix: " °C"
+  - entity: sensor.tec_heat_pump_space_restart_threshold
+    name: Restarts below
+  - entity: binary_sensor.tec_heat_pump_safety_floor_breach
+    name: Safety floors
+```
+
+Where space heating and hot water are costing you, side by side:
+
+```yaml
+type: entities
+title: Heating against hot water
+entities:
+  - entity: sensor.tec_heat_pump_cop_space_heating_today
+    name: COP heating today
+  - entity: sensor.tec_heat_pump_cop_dhw_today
+    name: COP hot water today
+  - entity: sensor.tec_heat_pump_space_heating_thermal_energy
+    name: Heat to the house
+  - entity: sensor.tec_heat_pump_dhw_thermal_energy
+    name: Heat to the tank
+  - entity: sensor.tec_heat_pump_dhw_e_heater_runtime_today
+    name: Element today
+```
+
 ### Switches (3)
 
 - AC Switch (DI4)
