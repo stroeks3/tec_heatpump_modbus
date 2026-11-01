@@ -42,7 +42,8 @@
           "delay": "Vertraging (seconden)",
           "timeout": "Time-out (seconden)",
           "climate_writes": "Thermostaat mag het verwarm-/koelsetpoint schrijven",
-          "water_heater_writes": "Boiler mag het tapwatersetpoint schrijven"
+          "water_heater_writes": "Boiler mag het tapwatersetpoint schrijven",
+          "safety_repairs": "Toon een melding als een veiligheidsvloer wordt onderschreden (EV06, CM16, CM13) of het inverteralarm vastklikt"
         }
       }
     }
@@ -53,6 +54,24 @@
     },
     "wrong_season": {
       "message": "De seizoensmodus wordt op het PGDX-paneel gezet; de unit staat in het {season}-seizoen."
+    }
+  },
+  "issues": {
+    "floor_ev06": {
+      "title": "Pomp min. snelheid (EV06) staat onder de veilige vloer",
+      "description": "EV06 staat al meer dan 5 minuten op {value} {unit}.\n\nOnder {floor} {unit} kan de pomp stoppen met water verplaatsen zonder dat de regelaar het merkt. Met draaiende compressor is er dan geen koelstroom voor de omvormer (IGBT); dit is de waarschijnlijke hoofdoorzaak van de AL143-omvormertrip van 2026-05-13.\n\nZet Pomp min. snelheid terug op {floor} {unit} of hoger in de instellingen van dit apparaat. Deze melding verdwijnt vanzelf zodra de waarde terug is. Wijkt je hardware af van de RS07V/LF, dan kun je deze meldingen uitzetten in de opties van de integratie."
+    },
+    "floor_cm16": {
+      "title": "Verwarmen min. frequentie (CM16) staat onder de veilige vloer",
+      "description": "CM16 staat al meer dan 5 minuten op {value} {unit}.\n\nOnder {floor} {unit} stopt de verwarmingscompressor beschermend (28 en 29 Hz stoppen direct op de RS07V/LF). Onder een Smart Grid-override wordt dezelfde instelling juist omvormerstress (IGBT).\n\nZet Verwarmen min. frequentie terug op {floor} {unit} of hoger in de instellingen van dit apparaat. Deze melding verdwijnt vanzelf zodra de waarde terug is. Wijkt je hardware af van de RS07V/LF, dan kun je deze meldingen uitzetten in de opties van de integratie."
+    },
+    "floor_cm13": {
+      "title": "Koelen min. frequentie (CM13) staat onder de veilige vloer",
+      "description": "CM13 staat al meer dan 5 minuten op {value} {unit}.\n\nOnder {floor} {unit} stopt de koelcompressor beschermend, hetzelfde patroon als CM16 bij verwarmen. De fabriekswaarde van 20 Hz ligt onder de vloer die op de RS07V/LF is vastgesteld.\n\nZet Koelen min. frequentie terug op {floor} {unit} of hoger in de instellingen van dit apparaat. Deze melding verdwijnt vanzelf zodra de waarde terug is. Wijkt je hardware af van de RS07V/LF, dan kun je deze meldingen uitzetten in de opties van de integratie."
+    },
+    "inverter_alarm": {
+      "title": "Inverteralarm staat vast",
+      "description": "De unit meldt een vastgeklikt inverteralarm (IGBT). Het blijft aan tot het op het PGDX-paneel wordt gereset of de unit stroomloos is gemaakt.\n\n1. Zet SG-modus uit als die aan staat.\n2. Laat de drukken uitvlakken met draaiende pomp (ongeveer 5 minuten).\n3. Probeer de alarmreset op het PGDX-paneel; helpt dat niet, maak de warmtepomp dan stroomloos.\n4. Wacht tot de unit weer klaar is voordat je instellingen wijzigt.\n5. Gaat het alarm niet weg, bel dan service."
     }
   }
 }

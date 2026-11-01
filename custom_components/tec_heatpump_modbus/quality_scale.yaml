@@ -103,9 +103,7 @@ rules:
     status: todo
     comment: No icons.json; only the refresh button hardcodes an mdi icon.
   reconfiguration-flow: done
-  repair-issues:
-    status: todo
-    comment: No repairs.py / async_create_issue usage.
+  repair-issues: done
   stale-devices:
     status: exempt
     comment: Single static device per entry; nothing to mark stale.

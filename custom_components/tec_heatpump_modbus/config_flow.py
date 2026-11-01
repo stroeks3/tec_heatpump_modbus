@@ -11,7 +11,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
     CONF_NAME, CONF_DELAY, CONF_TIMEOUT, CONF_DEVICE_ID,
-    CONF_CLIMATE_WRITES, CONF_WATER_HEATER_WRITES,
+    CONF_CLIMATE_WRITES, CONF_WATER_HEATER_WRITES, CONF_SAFETY_REPAIRS,
     DEFAULT_NAME, DEFAULT_DELAY, DEFAULT_PORT, DEFAULT_TIMEOUT, DEFAULT_DEVICE_ID,
     DOMAIN,
 )
@@ -110,7 +110,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class OptionsFlow(config_entries.OptionsFlow):
-    """Polling interval, timeout and the two setpoint-write switches."""
+    """Polling interval, timeout, the two setpoint-write switches and the safety notices."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         if user_input is not None:
@@ -122,5 +122,6 @@ class OptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_TIMEOUT, default=current.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)): vol.All(int, vol.Range(min=1)),
             vol.Required(CONF_CLIMATE_WRITES, default=current.get(CONF_CLIMATE_WRITES, True)): bool,
             vol.Required(CONF_WATER_HEATER_WRITES, default=current.get(CONF_WATER_HEATER_WRITES, True)): bool,
+            vol.Required(CONF_SAFETY_REPAIRS, default=current.get(CONF_SAFETY_REPAIRS, True)): bool,
         })
         return self.async_show_form(step_id="init", data_schema=schema)
