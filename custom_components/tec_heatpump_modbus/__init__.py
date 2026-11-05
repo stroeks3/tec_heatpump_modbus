@@ -82,10 +82,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) 
     coordinator = TECHeatPumpCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    # Options (poll interval, timeout, setpoint writes) take effect through a
-    # reload; the coordinator saves its counters on unload, so nothing is lost.
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     async def write_register_service(call: ServiceCall):
         """Service handler to write a value to a register.
@@ -129,9 +125,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) 
             vol.Required("value"): vol.Coerce(float),
         }
     )
+    # The service goes up BEFORE the platforms. The platforms bring the entities
+    # back, and an automation that triggers on one of them (the AC switch coming
+    # back after a reload) must find the service already there: registered
+    # after them, its first run failed with "Service not found".
     hass.services.async_register(
         DOMAIN, "write_register", write_register_service, schema=write_register_schema
     )
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Options (poll interval, timeout, setpoint writes) take effect through a
+    # reload; the coordinator saves its counters on unload, so nothing is lost.
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
 
@@ -151,9 +156,14 @@ async def async_remove_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TECHeatPumpConfigEntry) -> bool:
-    """Unload a config entry."""
-    hass.services.async_remove(DOMAIN, "write_register")
+    """Unload a config entry.
+
+    The service is removed after the platforms, mirroring setup, and only when
+    they really unloaded: a failed unload leaves the entry running, and it
+    keeps its service.
+    """
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        hass.services.async_remove(DOMAIN, "write_register")
         await entry.runtime_data.async_close()
     return unload_ok
 
