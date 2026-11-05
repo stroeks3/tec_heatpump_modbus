@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
@@ -260,3 +260,42 @@ async def test_removing_the_entry_removes_its_notices(
     await hass.async_block_till_done()
 
     assert registry.async_get_issue(DOMAIN, f"{entry.entry_id}_floor_ev06") is None
+
+
+async def test_the_service_exists_while_the_platforms_come_up(
+    hass: HomeAssistant, mock_modbus_client
+) -> None:
+    """Against a real instance: an entity that returns must find write_register."""
+    seen: dict[str, bool] = {}
+    original = hass.config_entries.async_forward_entry_setups
+
+    async def spy(entry, platforms):
+        seen["registered"] = hass.services.has_service(DOMAIN, "write_register")
+        return await original(entry, platforms)
+
+    with patch.object(hass.config_entries, "async_forward_entry_setups", spy):
+        entry = await _setup_entry(hass)
+
+    assert seen["registered"] is True
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert not hass.services.has_service(DOMAIN, "write_register")
+
+
+async def test_a_reload_keeps_the_service_while_the_entities_return(
+    hass: HomeAssistant, mock_modbus_client
+) -> None:
+    """The case behind the fix: reload, and watch the service at platform setup."""
+    entry = await _setup_entry(hass)
+    seen: dict[str, bool] = {}
+    original = hass.config_entries.async_forward_entry_setups
+
+    async def spy(e, platforms):
+        seen["registered"] = hass.services.has_service(DOMAIN, "write_register")
+        return await original(e, platforms)
+
+    with patch.object(hass.config_entries, "async_forward_entry_setups", spy):
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert seen["registered"] is True
+    assert hass.services.has_service(DOMAIN, "write_register")
