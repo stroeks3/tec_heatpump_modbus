@@ -27,6 +27,10 @@ from . import TECHeatPumpConfigEntry, TECHeatPumpCoordinator
 from .const import CONF_WATER_HEATER_WRITES, DHW_TEMP_FALLBACK, DOMAIN, NUMBERS, STATE_DHW, SWITCHES
 
 _LOGGER = logging.getLogger(__name__)
+
+# True on Home Assistant versions whose base class has the native_ temperature
+# properties (2026.11 and later); see the class body below.
+_NATIVE_TEMPERATURE = hasattr(WaterHeaterEntity, "native_current_temperature")
 PARALLEL_UPDATES = 0
 
 ST09 = next(n for n in NUMBERS if n["unique_id"] == "st09")
@@ -50,9 +54,14 @@ class TECHeatPumpWaterHeater(CoordinatorEntity[TECHeatPumpCoordinator], WaterHea
     # Fallback for installs whose translation files do not load; the other
     # platforms carry the same fallback through their name= field.
     _attr_name = "DHW"
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_HALVES
     _attr_target_temperature_step = 0.5
+    # See the climate entity: native_ names on Home Assistant 2026.11 and
+    # later, the old names before that.
+    if _NATIVE_TEMPERATURE:
+        _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
+    else:
+        _attr_temperature_unit = UnitOfTemperature.CELSIUS
     # "electric" is a state the firmware puts the tank in when the element
     # takes over above the water limit; it cannot be requested, so it is not
     # in the list of selectable modes.
@@ -82,14 +91,32 @@ class TECHeatPumpWaterHeater(CoordinatorEntity[TECHeatPumpCoordinator], WaterHea
             )
         return features
 
-    @property
-    def current_temperature(self) -> float | None:
+    def _tank_temperature(self) -> float | None:
         return self.coordinator.data.get("b4")
 
-    @property
-    def target_temperature(self) -> float | None:
+    def _setpoint(self) -> float | None:
         value = self.coordinator.data.get("st09")
         return round(value, 1) if value is not None else None
+
+    if _NATIVE_TEMPERATURE:
+
+        @property
+        def native_current_temperature(self) -> float | None:
+            return self._tank_temperature()
+
+        @property
+        def native_target_temperature(self) -> float | None:
+            return self._setpoint()
+
+    else:
+
+        @property
+        def current_temperature(self) -> float | None:
+            return self._tank_temperature()
+
+        @property
+        def target_temperature(self) -> float | None:
+            return self._setpoint()
 
     @property
     def min_temp(self) -> float:
