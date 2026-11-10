@@ -44,6 +44,10 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# True on Home Assistant versions whose base class has the native_ temperature
+# properties (2026.11 and later); see the class body below.
+_NATIVE_TEMPERATURE = hasattr(ClimateEntity, "native_current_temperature")
 PARALLEL_UPDATES = 0
 
 _NUMBER = {n["unique_id"]: n for n in NUMBERS}
@@ -78,9 +82,17 @@ class TECHeatPumpClimate(CoordinatorEntity[TECHeatPumpCoordinator], ClimateEntit
     # Fallback for installs whose translation files do not load; the other
     # platforms carry the same fallback through their name= field.
     _attr_name = "Heating"
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_HALVES
     _attr_target_temperature_step = 0.5
+
+    # Home Assistant 2026.11 deprecates temperature_unit, current_temperature
+    # and target_temperature in favour of their native_ forms (removal in
+    # 2027.11). Older versions only know the old names, and hacs.json still
+    # allows them, so the class defines whichever set the base class uses.
+    if _NATIVE_TEMPERATURE:
+        _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
+    else:
+        _attr_temperature_unit = UnitOfTemperature.CELSIUS
 
     def __init__(self, coordinator: TECHeatPumpCoordinator) -> None:
         super().__init__(coordinator)
@@ -134,13 +146,31 @@ class TECHeatPumpClimate(CoordinatorEntity[TECHeatPumpCoordinator], ClimateEntit
             return None
         return HVAC_ACTIONS.get(state, HVACAction.IDLE)
 
-    @property
-    def current_temperature(self) -> float | None:
+    def _inlet_temperature(self) -> float | None:
         return self.coordinator.data.get("b1")
 
-    @property
-    def target_temperature(self) -> float | None:
+    def _setpoint(self) -> float | None:
         return self._reg("st02", "st01")
+
+    if _NATIVE_TEMPERATURE:
+
+        @property
+        def native_current_temperature(self) -> float | None:
+            return self._inlet_temperature()
+
+        @property
+        def native_target_temperature(self) -> float | None:
+            return self._setpoint()
+
+    else:
+
+        @property
+        def current_temperature(self) -> float | None:
+            return self._inlet_temperature()
+
+        @property
+        def target_temperature(self) -> float | None:
+            return self._setpoint()
 
     @property
     def min_temp(self) -> float:
@@ -166,7 +196,7 @@ class TECHeatPumpClimate(CoordinatorEntity[TECHeatPumpCoordinator], ClimateEntit
             # Home Assistant only publishes `temperature` on a climate entity
             # that supports TARGET_TEMPERATURE, so with writes off the card
             # would show no target at all. This keeps it visible.
-            "setpoint": self.target_temperature,
+            "setpoint": self._setpoint(),
             "water_outlet": data.get("b2"),
             "restart_threshold": data.get("restart_threshold"),
             "writes_enabled": self._writes_enabled,
